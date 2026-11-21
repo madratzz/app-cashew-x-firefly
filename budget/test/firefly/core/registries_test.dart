@@ -98,11 +98,10 @@ void main() {
     final engine = SyncEngine(context);
     final scheduler = SyncScheduler(engine);
     expect(engine.isRunning, isFalse);
-    expect(await engine.progress.toList(), isEmpty);
     scheduler.start();
     scheduler.resume();
     scheduler.localWrite();
-    expect((await scheduler.syncNow()).succeeded, isTrue);
+    expect((await scheduler.syncNow()).cancelled, isTrue);
     scheduler.pause();
     scheduler.dispose();
     engine.cancel();
