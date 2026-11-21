@@ -54,6 +54,6 @@ void main() {
     }
 
     await db.clearFireflyFinanceData();
-    expect(await db.select(db.wallets).getSingle(), wallet);
+    expect(await db.select(db.wallets).get(), isEmpty);
   });
 }

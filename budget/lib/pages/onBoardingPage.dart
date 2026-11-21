@@ -2,6 +2,8 @@ import 'package:budget/colors.dart';
 import 'package:budget/database/generatePreviewData.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/pages/addBudgetPage.dart';
+import 'package:budget/firefly/firefly.dart';
+import 'package:budget/firefly/ui/pages/connection/connection_page.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/languageMap.dart';
 import 'package:budget/struct/settings.dart';
@@ -552,6 +554,21 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
           getPlatform() == PlatformOS.isIOS
               ? SizedBox.shrink()
               : SizedBox(height: 35),
+          if (FireflyMode.available)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(bottom: 15),
+              child: SettingsContainerOutlined(
+                onTap: () async {
+                  final connected = await pushRoute(
+                      context, const FireflyConnectionPage(onboarding: true));
+                  if (connected == true) nextNavigation();
+                },
+                title: "firefly-onboarding-connect".tr(),
+                description: "firefly-onboarding-connect-description".tr(),
+                icon: Icons.local_fire_department_rounded,
+                isExpanded: false,
+              ),
+            ),
           getPlatform() == PlatformOS.isIOS
               ? SizedBox.shrink()
               : LowKeyButton(
