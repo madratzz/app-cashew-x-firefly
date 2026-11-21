@@ -1,3 +1,6 @@
+import 'package:budget/firefly/firefly.dart';
+import 'package:budget/platform/capabilities.dart';
+import 'package:budget/struct/syncClient.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/accountsPage.dart';
 import 'package:budget/pages/autoTransactionsPageEmail.dart';
@@ -44,9 +47,11 @@ bool allowDangerousDebugFlags = kDebugMode;
 void main() async {
   captureLogs(() async {
     WidgetsFlutterBinding.ensureInitialized();
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    if (PlatformCapabilities.supportsFirebase) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
     await EasyLocalization.ensureInitialized();
     sharedPreferences = await SharedPreferences.getInstance();
     database = await constructDb('db');
@@ -55,9 +60,14 @@ void main() async {
     await loadCurrencyJSON();
     await loadLanguageNamesJSON();
     await initializeSettings();
+    await FireflyMode.init(() => appStateSettings);
     tz.initializeTimeZones();
     final String? locationName = await FlutterTimezone.getLocalTimezone();
-    tz.setLocalLocation(tz.getLocation(locationName ?? "America/New_York"));
+    try {
+      tz.setLocalLocation(tz.getLocation(locationName ?? "America/New_York"));
+    } catch (e) {
+      tz.setLocalLocation(tz.getLocation("America/New_York"));
+    }
     iconObjects.sort((a, b) => (a.mostLikelyCategoryName ?? a.icon)
         .compareTo((b.mostLikelyCategoryName ?? b.icon)));
     setHighRefreshRate();
@@ -133,7 +143,8 @@ class App extends StatelessWidget {
                 )),
               ],
             ),
-            EnableSignInWithGoogleFlyIn(),
+            if (PlatformCapabilities.googleDriveAvailable)
+              EnableSignInWithGoogleFlyIn(),
             GlobalLoadingIndeterminate(key: loadingIndeterminateKey),
             GlobalLoadingProgress(key: loadingProgressKey),
           ],
@@ -150,7 +161,9 @@ class App extends StatelessWidget {
           updateGlobalAppLifecycleState: true,
           onAppResume: () async {
             await setHighRefreshRate();
+            fireflyScheduler?.resume();
           },
+          onAppPaused: () => fireflyScheduler?.pause(),
           child: InitializeBiometrics(
             child: InitializeNotificationService(
               child: InitializeAppLinks(

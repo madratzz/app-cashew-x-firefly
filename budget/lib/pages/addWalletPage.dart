@@ -1,3 +1,5 @@
+import 'package:budget/firefly/firefly.dart';
+import 'package:budget/firefly/ui/slots.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addTransactionPage.dart';
@@ -470,7 +472,11 @@ class _AddWalletPageState extends State<AddWalletPage> {
             child: SizedBox(height: 15),
           ),
           SliverToBoxAdapter(
+            child: FireflyWalletExtras(walletPk: widget.wallet?.walletPk),
+          ),
+          SliverToBoxAdapter(
             child: widget.wallet == null ||
+                    (FireflyMode.enabled && widget.wallet!.walletPk == "0") ||
                     widget.routesToPopAfterDelete ==
                         RoutesToPopAfterDelete.PreventDelete
                 ? SizedBox.shrink()

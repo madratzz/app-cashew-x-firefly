@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
+import 'package:budget/platform/capabilities.dart';
 import 'package:budget/pages/addBudgetPage.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
@@ -17,6 +18,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:budget/struct/firebaseAuthGlobal.dart';
 
 Future<bool> shareBudget(Budget? budgetToShare, context) async {
+  if (!PlatformCapabilities.googleDriveAvailable) return false;
   if (appStateSettings["sharedBudgets"] == false) return false;
   if (budgetToShare == null) {
     return false;
@@ -267,6 +269,7 @@ Future<bool> compareSharedToCurrentBudgets(
 
 Timer? cloudTimeoutTimer;
 Future<bool> getCloudBudgets() async {
+  if (!PlatformCapabilities.googleDriveAvailable) return false;
   if (appStateSettings["sharedBudgets"] == false) return false;
   if (appStateSettings["hasSignedIn"] == false) return false;
   if (errorSigningInDuringCloud == true) return false;
@@ -643,6 +646,7 @@ Future<bool> deleteOnServer(
 }
 
 Future<bool> syncPendingQueueOnServer() async {
+  if (!PlatformCapabilities.googleDriveAvailable) return false;
   if (appStateSettings["sharedBudgets"] == false) return false;
   if (appStateSettings["hasSignedIn"] == false) return false;
   if (errorSigningInDuringCloud == true) return false;

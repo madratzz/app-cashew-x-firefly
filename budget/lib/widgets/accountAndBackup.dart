@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:budget/platform/capabilities.dart';
 import 'package:budget/colors.dart';
 import 'package:budget/database/generatePreviewData.dart';
 import 'package:budget/database/tables.dart';
@@ -81,6 +82,9 @@ Future<bool> signInGoogle(
     bool? silentSignIn,
     Function()? next}) async {
   // bool isConnected = false;
+  if (silentSignIn == true && !PlatformCapabilities.googleDriveAvailable) {
+    return false;
+  }
   if (await checkLockedFeatureIfInDemoMode(context) == false) return false;
   if (appStateSettings["emailScanning"] == false) gMailPermissions = false;
 
@@ -300,6 +304,7 @@ Future<bool> signInAndSync(BuildContext context,
 }
 
 Future<void> createBackupInBackground(context) async {
+  if (!PlatformCapabilities.googleDriveAvailable) return;
   if (appStateSettings["hasSignedIn"] == false) return;
   if (errorSigningInDuringCloud == true) return;
   if (kIsWeb && !entireAppLoaded) return;
@@ -1533,6 +1538,7 @@ Future<bool> saveDriveFileToDevice({
 }
 
 bool openBackupReminderPopupCheck(BuildContext context) {
+  if (!PlatformCapabilities.googleDriveAvailable) return false;
   if ((appStateSettings["currentUserEmail"] == null ||
           appStateSettings["currentUserEmail"] == "") &&
       ((appStateSettings["numLogins"] + 1) % 7 == 0) &&

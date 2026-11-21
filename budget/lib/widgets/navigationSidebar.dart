@@ -1,3 +1,5 @@
+import 'package:budget/firefly/firefly.dart';
+import 'package:budget/firefly/ui/slots.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/main.dart';
 import 'package:budget/pages/editCategoriesPage.dart';
@@ -303,10 +305,11 @@ class NavigationSidebarState extends State<NavigationSidebar> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               SizedBox(height: 40),
-                              GoogleAccountLoginButton(
-                                navigationSidebarButton: true,
-                                isButtonSelected: selectedIndex == 8,
-                              ),
+                              if (!FireflyMode.enabled)
+                                GoogleAccountLoginButton(
+                                  navigationSidebarButton: true,
+                                  isButtonSelected: selectedIndex == 8,
+                                ),
                               NavigationSidebarButtonWithNavBarIconData(
                                 navBarIconDataKey: "settings",
                                 currentPageIndex: selectedIndex,
@@ -471,7 +474,8 @@ class _SyncButtonState extends State<SyncButton> {
       ),
     );
     return AnimatedExpanded(
-      expand: !(appStateSettings["currentUserEmail"] == "" ||
+      expand: FireflyMode.enabled ||
+          !(appStateSettings["currentUserEmail"] == "" ||
           appStateSettings["backupSync"] == false),
       child: Padding(
         padding:
@@ -499,7 +503,9 @@ class _SyncButtonState extends State<SyncButton> {
                       refreshButton,
                       SizedBox(width: 15),
                       Flexible(
-                        child: AnimatedSwitcher(
+                        child: FireflyMode.enabled
+                            ? const FireflySyncStatus()
+                            : AnimatedSwitcher(
                           duration: Duration(milliseconds: 500),
                           child: SizedBox(
                             key: ValueKey(appStateSettings["lastSynced"]),

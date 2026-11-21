@@ -1,3 +1,4 @@
+import 'package:budget/firefly/firefly.dart';
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
@@ -252,7 +253,8 @@ class _EditWalletsPageState extends State<EditWalletsPage> {
                         );
                       },
                       canDelete: (wallet.walletPk != "0" ||
-                          Provider.of<AllWallets>(context, listen: true)
+                          !FireflyMode.enabled &&
+                              Provider.of<AllWallets>(context, listen: true)
                                   .indexedByPk
                                   .entries
                                   .length >
@@ -472,7 +474,8 @@ void mergeWalletPopup(
           walletOriginal.walletPk,
           selectedWalletResult.walletPk,
         );
-        if (walletOriginal.walletPk == "0") {
+        if (walletOriginal.walletPk == "0" && FireflyMode.enabled) {
+        } else if (walletOriginal.walletPk == "0") {
           await database.convertToPrimaryWallet(selectedWalletResult);
         } else {
           await database.deleteWallet(
