@@ -474,9 +474,10 @@ void mergeWalletPopup(
           walletOriginal.walletPk,
           selectedWalletResult.walletPk,
         );
-        if (walletOriginal.walletPk == "0" && FireflyMode.enabled) {
-        } else if (walletOriginal.walletPk == "0") {
-          await database.convertToPrimaryWallet(selectedWalletResult);
+        if (walletOriginal.walletPk == "0") {
+          if (!FireflyMode.enabled) {
+            await database.convertToPrimaryWallet(selectedWalletResult);
+          }
         } else {
           await database.deleteWallet(
               walletOriginal.walletPk, walletOriginal.order);
