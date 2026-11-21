@@ -1,2 +1,7 @@
 # Miscellaneous
 /.vscode/
+/budget/.fvm/
+.env
+.env.*
+*.pat
+/docker/firefly/.env

@@ -11,7 +11,7 @@ import 'package:budget/struct/syncClient.dart';
 import 'package:budget/widgets/navigationFramework.dart';
 import 'package:budget/widgets/periodCyclePicker.dart';
 import 'package:budget/widgets/walletEntry.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' hide Index;
 import 'dart:async';
 import 'package:async/async.dart';
 import 'package:drift/drift.dart';
@@ -26,9 +26,11 @@ import 'package:budget/pages/activityPage.dart';
 import 'package:flutter/material.dart' show RangeValues;
 part 'tables.g.dart';
 
-int schemaVersionGlobal = 46;
+int schemaVersionGlobal = 47;
 
 // To update and migrate the database, check the README
+// After regenerating tables.g.dart, preserve the v47 defaults in the legacy
+// TransactionWallet and Transaction constructors and fromJson factories.
 
 // Character Limits
 const int NAME_LIMIT = 250;
@@ -128,6 +130,49 @@ enum MethodAdded {
 }
 
 enum SharedStatus { waiting, shared, error }
+
+// Drift stores these enum values by index. Append any new values at the end.
+enum AccountKind { asset, liability, cash }
+
+enum FireflyTransactionType {
+  withdrawal,
+  deposit,
+  transfer,
+  reconciliation,
+  openingBalance,
+}
+
+enum FireflyEntityType {
+  walletAccount,
+  liabilityAccount,
+  payeeAccount,
+  category,
+  transaction,
+  transactionGroup,
+  budget,
+  budgetLimit,
+  piggyBank,
+  bill,
+  recurrence,
+  tag,
+  attachment,
+  currency,
+  rule,
+  ruleGroup,
+  objectGroup,
+  transactionLink,
+}
+
+enum FireflySyncState {
+  synced,
+  creating,
+  pendingDelete,
+  conflict,
+  error,
+  localOnly,
+}
+
+enum PayeeKind { expense, revenue }
 
 class IntListInColumnConverter extends TypeConverter<List<int>, String> {
   const IntListInColumnConverter();
@@ -265,6 +310,9 @@ class Wallets extends Table {
       .nullable()
       .withDefault(const Constant(null))
       .map(const HomePageWidgetDisplayListInColumnConverter())();
+  IntColumn get accountKind =>
+      intEnum<AccountKind>().withDefault(const Constant(0))();
+  BoolColumn get archived => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {walletPk};
@@ -334,6 +382,15 @@ class Transactions extends Table {
       text().references(Objectives, #objectivePk).nullable()();
   TextColumn get budgetFksExclude =>
       text().map(const StringListInColumnConverter()).nullable()();
+  TextColumn get payeeFk => text().nullable().references(Payees, #payeePk)();
+  RealColumn get foreignAmount => real().nullable()();
+  TextColumn get foreignCurrency => text().nullable()();
+  TextColumn get splitGroupFk =>
+      text().nullable().references(TransactionGroups, #groupPk)();
+  IntColumn get splitOrder => integer().nullable()();
+  IntColumn get fireflyType => intEnum<FireflyTransactionType>().nullable()();
+  TextColumn get billFk => text().nullable()();
+  BoolColumn get reconciled => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {transactionPk};
@@ -538,6 +595,166 @@ class Objectives extends Table {
   Set<Column> get primaryKey => {objectivePk};
 }
 
+@TableIndex(
+  name: 'firefly_id_map_remote',
+  columns: {#entityType, #remoteId, #remoteSubId, #remoteRole},
+  unique: true,
+)
+@DataClassName('FireflyIdMapping')
+class FireflyIdMap extends Table {
+  IntColumn get entityType => intEnum<FireflyEntityType>()();
+  TextColumn get localPk => text()();
+  TextColumn get remoteId => text()();
+  TextColumn get remoteSubId => text().withDefault(const Constant(''))();
+  IntColumn get remoteRole => integer().withDefault(const Constant(0))();
+  DateTimeColumn get remoteUpdatedAt => dateTime().nullable()();
+  DateTimeColumn get localVersionAt => dateTime().nullable()();
+  TextColumn get syncedHash => text().nullable()();
+  TextColumn get lossyFields => text().nullable()();
+  IntColumn get state => intEnum<FireflySyncState>()();
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+  TextColumn get lastError => text().nullable()();
+  DateTimeColumn get lastAttemptAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {entityType, localPk};
+}
+
+@DataClassName('FireflySyncMetaEntry')
+class FireflySyncMeta extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+
+  @override
+  Set<Column> get primaryKey => {key};
+}
+
+class FireflyConflicts extends Table {
+  TextColumn get conflictPk => text().clientDefault(() => uuid.v4())();
+  IntColumn get entityType => intEnum<FireflyEntityType>()();
+  TextColumn get localPk => text()();
+  TextColumn get remoteId => text()();
+  TextColumn get localJson => text()();
+  TextColumn get remoteJson => text().nullable()();
+  TextColumn get resolution => text()();
+  DateTimeColumn get dateCreated => dateTime().clientDefault(DateTime.now)();
+  BoolColumn get acknowledged => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {conflictPk};
+}
+
+@DataClassName('FireflyCachedResource')
+class FireflyResourceCache extends Table {
+  TextColumn get resourcePk => text()();
+  IntColumn get entityType => intEnum<FireflyEntityType>()();
+  TextColumn get json => text()();
+  DateTimeColumn get dateTimeModified => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {resourcePk};
+}
+
+class Payees extends Table {
+  TextColumn get payeePk => text().clientDefault(() => uuid.v4())();
+  TextColumn get name => text()();
+  IntColumn get kind => intEnum<PayeeKind>()();
+  BoolColumn get active => boolean().withDefault(const Constant(true))();
+  TextColumn get notes => text().nullable()();
+  TextColumn get iban => text().nullable()();
+  DateTimeColumn get dateCreated => dateTime().clientDefault(DateTime.now)();
+  DateTimeColumn get dateTimeModified => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {payeePk};
+}
+
+class Tags extends Table {
+  TextColumn get tagPk => text().clientDefault(() => uuid.v4())();
+  TextColumn get name => text()();
+  TextColumn get description => text().nullable()();
+  DateTimeColumn get date => dateTime().nullable()();
+  DateTimeColumn get dateCreated => dateTime().clientDefault(DateTime.now)();
+  DateTimeColumn get dateTimeModified => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {tagPk};
+}
+
+@DataClassName('TransactionTagLink')
+class TransactionTags extends Table {
+  TextColumn get transactionFk => text()
+      .references(Transactions, #transactionPk, onDelete: KeyAction.cascade)();
+  TextColumn get tagFk =>
+      text().references(Tags, #tagPk, onDelete: KeyAction.cascade)();
+
+  @override
+  Set<Column> get primaryKey => {transactionFk, tagFk};
+}
+
+class TransactionGroups extends Table {
+  TextColumn get groupPk => text().clientDefault(() => uuid.v4())();
+  TextColumn get title => text().nullable()();
+  DateTimeColumn get dateTimeModified => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {groupPk};
+}
+
+class Attachments extends Table {
+  TextColumn get attachmentPk => text().clientDefault(() => uuid.v4())();
+  TextColumn get attachableType => text()();
+  TextColumn get attachableFk => text()();
+  TextColumn get filename => text()();
+  TextColumn get title => text().nullable()();
+  TextColumn get mime => text().nullable()();
+  IntColumn get size => integer().nullable()();
+  TextColumn get localPath => text().nullable()();
+  TextColumn get hash => text().nullable()();
+  TextColumn get uploadState => text()();
+  DateTimeColumn get dateCreated => dateTime().clientDefault(DateTime.now)();
+  DateTimeColumn get dateTimeModified => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {attachmentPk};
+}
+
+@DataClassName('AccountDetail')
+class AccountDetails extends Table {
+  TextColumn get walletFk => text().references(Wallets, #walletPk)();
+  TextColumn get accountRole => text().nullable()();
+  TextColumn get liabilityType => text().nullable()();
+  TextColumn get liabilityDirection => text().nullable()();
+  RealColumn get interest => real().nullable()();
+  TextColumn get interestPeriod => text().nullable()();
+  TextColumn get iban => text().nullable()();
+  TextColumn get bic => text().nullable()();
+  TextColumn get accountNumber => text().nullable()();
+  TextColumn get notes => text().nullable()();
+  BoolColumn get includeNetWorth => boolean().nullable()();
+  RealColumn get virtualBalance => real().nullable()();
+  RealColumn get serverBalance => real().nullable()();
+  DateTimeColumn get serverBalanceDate => dateTime().nullable()();
+  DateTimeColumn get dateTimeModified => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {walletFk};
+}
+
+class BudgetLimits extends Table {
+  TextColumn get budgetLimitPk => text().clientDefault(() => uuid.v4())();
+  TextColumn get budgetFk => text().references(Budgets, #budgetPk)();
+  DateTimeColumn get start => dateTime()();
+  DateTimeColumn get end => dateTime()();
+  RealColumn get amount => real()();
+  TextColumn get currency => text()();
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get dateTimeModified => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {budgetLimitPk};
+}
+
 class TransactionWithCategory {
   final TransactionCategory category;
   final Transaction transaction;
@@ -688,6 +905,17 @@ class CategoryWithTotal {
   ScannerTemplates,
   DeleteLogs,
   Objectives,
+  FireflyIdMap,
+  FireflySyncMeta,
+  FireflyConflicts,
+  FireflyResourceCache,
+  Payees,
+  Tags,
+  TransactionTags,
+  TransactionGroups,
+  Attachments,
+  AccountDetails,
+  BudgetLimits,
 ])
 class FinanceDatabase extends _$FinanceDatabase {
   // FinanceDatabase() : super(_openConnection());
@@ -1162,6 +1390,45 @@ class FinanceDatabase extends _$FinanceDatabase {
                 print(
                     "Migration Error: Error creating column objectives.type " +
                         e.toString());
+              }
+            },
+            from46To47: (m, schema) async {
+              try {
+                await transaction(() async {
+                  await m.createTable(schema.fireflyIdMap);
+                  await m.createTable(schema.fireflySyncMeta);
+                  await m.createTable(schema.fireflyConflicts);
+                  await m.createTable(schema.fireflyResourceCache);
+                  await m.createTable(schema.payees);
+                  await m.createTable(schema.tags);
+                  await m.createTable(schema.transactionGroups);
+                  await m.createTable(schema.attachments);
+                  await m.createTable(schema.accountDetails);
+                  await m.createTable(schema.budgetLimits);
+                  await m.addColumn(schema.wallets, schema.wallets.accountKind);
+                  await m.addColumn(schema.wallets, schema.wallets.archived);
+                  await m.addColumn(
+                      schema.transactions, schema.transactions.payeeFk);
+                  await m.addColumn(
+                      schema.transactions, schema.transactions.foreignAmount);
+                  await m.addColumn(
+                      schema.transactions, schema.transactions.foreignCurrency);
+                  await m.addColumn(
+                      schema.transactions, schema.transactions.splitGroupFk);
+                  await m.addColumn(
+                      schema.transactions, schema.transactions.splitOrder);
+                  await m.addColumn(
+                      schema.transactions, schema.transactions.fireflyType);
+                  await m.addColumn(
+                      schema.transactions, schema.transactions.billFk);
+                  await m.addColumn(
+                      schema.transactions, schema.transactions.reconciled);
+                  await m.createTable(schema.transactionTags);
+                  await m.createIndex(schema.fireflyIdMapRemote);
+                });
+              } catch (e) {
+                print("Migration Error: Error upgrading to schema 47: $e");
+                rethrow;
               }
             },
           ),

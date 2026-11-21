@@ -1,0 +1,64 @@
+[extend]
+useDefault = true
+
+# Existing upstream findings. A later commit touching these files is scanned.
+
+[[allowlists]]
+condition = "AND"
+targetRules = ["gcp-api-key", "generic-api-key"]
+paths = ['^budget/android/app/google\-services\-old\.json$']
+commits = [
+  "441bfe2ad113b1fecc2d9291f9d100b95b2eea7f",
+]
+
+[[allowlists]]
+condition = "AND"
+targetRules = ["gcp-api-key", "generic-api-key"]
+paths = ['^budget/android/app/google\-services\.json$']
+commits = [
+  "441bfe2ad113b1fecc2d9291f9d100b95b2eea7f",
+  "71b636000cd81dc44ea9070f55fbbb9e53bb96ff",
+]
+
+[[allowlists]]
+condition = "AND"
+targetRules = ["gcp-api-key", "generic-api-key"]
+paths = ['^budget/lib/firebase_options\.dart$']
+commits = [
+  "53307cea9e210107995ac80128f1f37f47c2314c",
+]
+
+[[allowlists]]
+condition = "AND"
+targetRules = ["gcp-api-key", "generic-api-key"]
+paths = ['^budget/lib/main\.dart$']
+commits = [
+  "093872996bbc314b8d571883d22715fa8d629a8f",
+  "7621babba0e12afdb63678a39cb59e35ea4dae43",
+  "aff9f96f53e833dd2510334ed54c0bae34aef167",
+]
+
+[[allowlists]]
+condition = "AND"
+targetRules = ["gcp-api-key", "generic-api-key"]
+paths = ['^budget/web/index\.html$']
+commits = [
+  "093872996bbc314b8d571883d22715fa8d629a8f",
+]
+
+[[allowlists]]
+condition = "AND"
+targetRules = ["generic-api-key"]
+paths = ['^budget/assets/translations/generated/pl\.json$']
+commits = [
+  "08ebb205c80ecb14e6ac84099fac7d73c7abc9ed",
+]
+
+[[allowlists]]
+condition = "AND"
+targetRules = ["generic-api-key"]
+paths = ['^budget/ios/Podfile\.lock$']
+commits = [
+  "57fb7514967714492c12170a85b75a01997ca91b",
+  "8f6f941e40f53d65de745d91916d6de6ff9f5f29",
+]
