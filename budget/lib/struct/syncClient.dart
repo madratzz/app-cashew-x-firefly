@@ -219,6 +219,11 @@ Future<SyncScheduler?> fireflySchedulerIfEnabled() async {
       )),
       config: config,
     )));
+    final SyncScheduler scheduler = fireflyScheduler!;
+    // Ignore late Drift watcher events caused by the cycle's own writes
+    scheduler.engine.progress
+        .where((progress) => progress.phase == SyncPhase.complete)
+        .listen((_) => scheduler.suppressLocalWrites(const Duration(seconds: 2)));
   }
   return fireflyScheduler;
 }
