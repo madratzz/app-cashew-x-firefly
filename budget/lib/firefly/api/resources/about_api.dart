@@ -5,8 +5,9 @@ class AboutApi {
   const AboutApi(this.transport);
   final FireflyTransport transport;
 
-  Future<FireflyAbout> get() async => throw const FireflyTransportUnavailable();
+  Future<FireflyAbout> get() async =>
+      FireflyAbout.fromJson(await transport.get('/about'));
 
   Future<FireflyUser> getUser() async =>
-      throw const FireflyTransportUnavailable();
+      FireflyUser.fromJson(await transport.get('/about/user'));
 }

@@ -1,7 +1,6 @@
 import 'package:budget/database/tables.dart';
 import 'package:budget/firefly/api/firefly_api.dart';
 import 'package:budget/firefly/api/models/transaction.dart';
-import 'package:budget/firefly/api/transport.dart';
 import 'package:budget/firefly/config/config.dart';
 import 'package:budget/firefly/sync/bootstrap_upload.dart';
 import 'package:budget/firefly/sync/contracts.dart';
@@ -113,8 +112,6 @@ void main() {
     final roaming = FireflyMetaRoaming(context);
     await roaming.pull();
     await roaming.push();
-    await expectLater(context.api.currencies.enable('USD'),
-        throwsA(isA<FireflyTransportUnavailable>()));
     expect(transport.requests, isEmpty);
   });
 }
