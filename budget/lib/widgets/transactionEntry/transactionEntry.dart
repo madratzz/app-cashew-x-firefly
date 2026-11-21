@@ -1,3 +1,5 @@
+import 'package:budget/firefly/firefly.dart';
+import 'package:budget/firefly/ui/slots.dart';
 import 'dart:convert';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
@@ -401,6 +403,16 @@ class TransactionEntry extends StatelessWidget {
         objectiveLoan: objectiveLoan,
         showExcludedBudgetTag: showExcludedBudgetTag,
       );
+      if (FireflyMode.enabled) {
+        tags = Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            tags,
+            FireflyTransactionEntryExtras(transaction: transaction),
+          ],
+        );
+      }
       Widget noteIcon = TransactionEntryNote(
         transaction: transaction,
         iconColor: iconColor,

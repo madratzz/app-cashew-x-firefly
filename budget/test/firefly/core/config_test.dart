@@ -203,7 +203,10 @@ void main() {
           jsonDecode(await rootBundle.loadString(path)) as Map<String, Object?>;
       final translations =
           await loader.load('assets/translations/generated', locale);
-      expect(translations, {...original, 'firefly-title': 'Firefly III'});
+      for (final e in original.entries) {
+        expect(translations[e.key], e.value);
+      }
+      expect(translations['firefly-title'], 'Firefly III');
     }
   });
 }

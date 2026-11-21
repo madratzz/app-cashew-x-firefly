@@ -3,7 +3,15 @@ import 'package:async/async.dart';
 import 'dart:convert';
 import 'package:budget/database/binary_string_conversion.dart';
 import 'package:budget/database/tables.dart';
+import 'package:budget/firefly/api/firefly_api.dart';
+import 'package:budget/firefly/api/http_transport.dart';
+import 'package:budget/firefly/config/config.dart';
+import 'package:budget/firefly/firefly.dart';
+import 'package:budget/firefly/sync/contracts.dart';
+import 'package:budget/firefly/sync/engine.dart';
+import 'package:budget/firefly/sync/scheduler.dart';
 import 'package:budget/functions.dart';
+import 'package:budget/platform/capabilities.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/accountAndBackup.dart';
@@ -77,6 +85,7 @@ Debouncer backupDebounce = Debouncer(milliseconds: 5000);
 Future<bool> createSyncBackup(
     {bool changeMadeSync = false,
     bool changeMadeSyncWaitForDebounce = true}) async {
+  if (!PlatformCapabilities.googleDriveAvailable) return false;
   if (appStateSettings["hasSignedIn"] == false) return false;
   if (errorSigningInDuringCloud == true) return false;
   if (appStateSettings["backupSync"] == false) return false;
@@ -173,6 +182,71 @@ class SyncLog {
   }
 }
 
+// Firefly mode replaces Drive sync with the Firefly sync engine
+SyncScheduler? fireflyScheduler;
+String? _fireflySchedulerConfig;
+
+// Recreates the scheduler when the connection settings change.
+// Timers start only from startFireflyScheduler, never from a requested sync
+Future<SyncScheduler?> fireflySchedulerIfEnabled() async {
+  final FireflyConfig config = FireflyMode.config;
+  final String configKey = [
+    config.baseUrl,
+    config.syncOnChange,
+    config.applyRules,
+    config.fireWebhooks,
+    config.transactionWindowDays,
+    config.pageSize,
+    config.subcategorySeparator,
+  ].join("|");
+  if (fireflyScheduler != null &&
+      (!FireflyMode.enabled || configKey != _fireflySchedulerConfig)) {
+    final SyncScheduler oldScheduler = fireflyScheduler!;
+    fireflyScheduler = null;
+    _fireflySchedulerConfig = null;
+    oldScheduler.engine.cancel();
+    oldScheduler.dispose();
+    await oldScheduler.engine.dispose();
+  }
+  if (!FireflyMode.enabled) return null;
+  if (fireflyScheduler == null) {
+    _fireflySchedulerConfig = configKey;
+    fireflyScheduler = SyncScheduler(SyncEngine(SyncContext(
+      db: database,
+      api: FireflyApi(HttpFireflyTransport(
+        baseUrl: normalizeFireflyUrl(config.baseUrl),
+        readToken: FireflyMode.tokens.read,
+      )),
+      config: config,
+    )));
+    final SyncScheduler scheduler = fireflyScheduler!;
+    // Ignore late Drift watcher events caused by the cycle's own writes
+    scheduler.engine.progress
+        .where((progress) => progress.phase == SyncPhase.complete)
+        .listen((_) => scheduler.suppressLocalWrites(const Duration(seconds: 2)));
+  }
+  return fireflyScheduler;
+}
+
+// Foreground lifecycle entry: app load and resume
+Future<void> startFireflyScheduler() async {
+  (await fireflySchedulerIfEnabled())?.start();
+}
+
+Future<bool> runFireflySync({bool fullResync = false}) async {
+  final SyncScheduler? scheduler = await fireflySchedulerIfEnabled();
+  if (scheduler == null) return false;
+  final SyncReport report = await scheduler.syncNow(fullResync: fullResync);
+  return report.succeeded;
+}
+
+// Database writes made by a running sync cycle are not local edits
+void fireflyLocalWrite() {
+  final SyncScheduler? scheduler = fireflyScheduler;
+  if (scheduler == null || scheduler.engine.isRunning) return;
+  scheduler.localWrite();
+}
+
 // Only allow one sync at a time
 bool canSyncData = true;
 
@@ -184,10 +258,12 @@ CancelableCompleter<bool> syncDataCompleter = CancelableCompleter(onCancel: () {
 
 Future<dynamic> cancelAndPreventSyncOperation() async {
   requestSyncDataCancel = true;
+  fireflyScheduler?.engine.cancel();
   return await syncDataCompleter.operation.cancel();
 }
 
 Future<bool> runForceSignIn(BuildContext context) async {
+  if (!PlatformCapabilities.googleDriveAvailable) return false;
   if (appStateSettings["forceAutoLogin"] == false) return false;
   if (appStateSettings["hasSignedIn"] == false) return false;
   return await signInGoogle(
@@ -199,6 +275,7 @@ Future<bool> runForceSignIn(BuildContext context) async {
 }
 
 Future<bool> syncData(BuildContext context) async {
+  if (!PlatformCapabilities.googleDriveAvailable) return false;
   // Create a new instance of the completer
   if (syncDataCompleter.isCompleted) {
     syncDataCompleter = CancelableCompleter(onCancel: () {
@@ -212,6 +289,7 @@ Future<bool> syncData(BuildContext context) async {
 
 // load the latest backup and import any newly modified data into the db
 Future<bool> _syncData(BuildContext context) async {
+  if (!PlatformCapabilities.googleDriveAvailable) return false;
   if (canSyncData == false) return false;
   // Syncing data seems to fail on iOS debug mode (at least on iPad).
   // When actually creating the entries, it seems the device disconnects.

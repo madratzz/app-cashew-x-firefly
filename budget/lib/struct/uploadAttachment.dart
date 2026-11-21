@@ -1,3 +1,4 @@
+import 'package:budget/platform/capabilities.dart';
 import 'dart:io';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/accountAndBackup.dart';
@@ -13,6 +14,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 
 Future<String?> getPhotoAndUpload({required ImageSource source}) async {
+  if (source == ImageSource.camera && !PlatformCapabilities.supportsCamera) {
+    return null;
+  }
   dynamic result = await openLoadingPopupTryCatch(() async {
     final ImagePicker picker = ImagePicker();
     final XFile? photo = await picker.pickImage(source: source);
@@ -109,6 +113,8 @@ Future<String?> uploadFileToDrive({
   required Uint8List fileBytes,
   required String fileName,
 }) async {
+  // Firefly mode stores attachments through the Firefly attachments section
+  if (!PlatformCapabilities.googleDriveAvailable) return null;
   if (googleUser == null) {
     await signInGoogle(drivePermissionsAttachments: true);
   }

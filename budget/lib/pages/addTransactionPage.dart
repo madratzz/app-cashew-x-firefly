@@ -1,3 +1,7 @@
+import 'package:budget/firefly/firefly.dart';
+import 'package:budget/firefly/ui/draft.dart';
+import 'package:budget/firefly/ui/slots.dart';
+import 'package:budget/platform/capabilities.dart';
 import 'package:budget/database/generatePreviewData.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
@@ -132,6 +136,15 @@ class AddTransactionPage extends StatefulWidget {
 
 class _AddTransactionPageState extends State<AddTransactionPage>
     with SingleTickerProviderStateMixin {
+  final FireflyTransactionDraft fireflyDraft =
+      FireflyTransactionDraft(database);
+  // Firefly opening balance and reconciliation rows are server-owned
+  bool get fireflyReadOnly =>
+      FireflyMode.enabled &&
+      (widget.transaction?.fireflyType ==
+              FireflyTransactionType.reconciliation ||
+          widget.transaction?.fireflyType ==
+              FireflyTransactionType.openingBalance);
   TransactionCategory? selectedCategory;
   TransactionCategory? selectedSubCategory;
   double? selectedAmount;
@@ -390,6 +403,13 @@ class _AddTransactionPageState extends State<AddTransactionPage>
 
   bool lockAddTransaction = false;
   Future<bool> addTransaction() async {
+    if (fireflyReadOnly) {
+      openSnackbar(SnackbarMessage(
+        title: "firefly-read-only-transaction".tr(),
+        icon: Icons.lock_outline,
+      ));
+      return false;
+    }
     if (lockAddTransaction) return false;
     lockAddTransaction = true;
 
@@ -561,6 +581,9 @@ class _AddTransactionPageState extends State<AddTransactionPage>
             await database.getTransactionFromRowId(rowId);
         print("Transaction just added:");
         print(transactionJustAdded);
+        if (FireflyMode.enabled) {
+          await fireflyDraft.persist(transactionJustAdded.transactionPk);
+        }
 
         // Do the flash animation only if the date was changed
         if (transactionJustAdded.dateCreated !=
@@ -726,6 +749,11 @@ class _AddTransactionPageState extends State<AddTransactionPage>
   @override
   void initState() {
     super.initState();
+    if (FireflyMode.enabled && widget.transaction != null) {
+      fireflyDraft
+          .load(widget.transaction!.transactionPk)
+          .then((_) => mounted ? setState(() {}) : null);
+    }
     if (widget.transaction != null) {
       //We are editing a transaction
       //Fill in the information from the passed in transaction
@@ -1092,6 +1120,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
             setSelectedNoteController: setSelectedNoteController,
           ),
         ),
+        FireflyTransactionExtras(draft: fireflyDraft),
       ],
     );
 
@@ -3804,6 +3833,11 @@ class TransactionTypeInfoEntry extends StatelessWidget {
   Widget build(BuildContext context) {
     if (transactionTypesToShow?.contains(transactionType) == false)
       return SizedBox.shrink();
+    if (FireflyMode.enabled &&
+        (transactionType == TransactionSpecialType.credit ||
+            transactionType == TransactionSpecialType.debt)) {
+      return const SizedBox.shrink();
+    }
     if (onlyShowOneTransactionType == null ||
         onlyShowOneTransactionType == transactionType) {
       return Padding(
@@ -4395,6 +4429,7 @@ class _TransactionNotesTextInputState extends State<TransactionNotesTextInput> {
                   )
                 : getColor(context, "lightDarkAccent"),
           ),
+          if (!FireflyMode.enabled)
           LinkInNotes(
             color: (appStateSettings["materialYou"]
                 ? Theme.of(context).colorScheme.secondaryContainer
@@ -4418,7 +4453,8 @@ class _TransactionNotesTextInputState extends State<TransactionNotesTextInput> {
                   subtitle: "add-attachment-description".tr(),
                   child: Column(
                     children: [
-                      if (kIsWeb == false)
+                      if (kIsWeb == false &&
+                          PlatformCapabilities.supportsCamera)
                         Padding(
                           padding: const EdgeInsetsDirectional.only(bottom: 13),
                           child: Row(

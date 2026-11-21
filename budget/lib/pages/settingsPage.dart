@@ -1,3 +1,5 @@
+import 'package:budget/firefly/firefly.dart';
+import 'package:budget/firefly/ui/slots.dart';
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart' hide AppSettings;
 import 'package:budget/pages/aboutPage.dart';
@@ -241,7 +243,7 @@ class MorePages extends StatelessWidget {
                           ),
                         )
                       : SizedBox.shrink(),
-              if (hasSideNavigation == false)
+              if (hasSideNavigation == false && !FireflyMode.enabled)
                 Expanded(
                     child: GoogleAccountLoginButton(
                   key: settingsGoogleAccountLoginButtonKey,
@@ -569,7 +571,7 @@ class SettingsPageContent extends StatelessWidget {
         //   icon: appStateSettings["outlinedIcons"] ? Icons.auto_fix_high_outlined : Icons.auto_fix_high_rounded,
         // ),
 
-        appStateSettings["emailScanning"]
+        appStateSettings["emailScanning"] && !FireflyMode.enabled
             ? SettingsContainerOpenPage(
                 openPage: AutoTransactionsPageEmail(),
                 title: "auto-email-transactions".tr(),
@@ -618,10 +620,15 @@ class SettingsPageContent extends StatelessWidget {
 
         ImportDB(),
 
-        GoogleAccountLoginButton(
-          isOutlinedButton: false,
-          forceButtonName: "google-drive".tr(),
-        ),
+        if (!FireflyMode.enabled)
+          GoogleAccountLoginButton(
+            isOutlinedButton: false,
+            forceButtonName: "google-drive".tr(),
+          ),
+
+        const FireflySettingsEntry(),
+
+        const FireflyHubSection(),
       ],
     );
   }

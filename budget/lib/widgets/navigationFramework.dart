@@ -1,3 +1,5 @@
+import 'package:budget/firefly/config/log_redaction.dart';
+import 'package:budget/firefly/firefly.dart';
 import 'package:animations/animations.dart';
 import 'package:budget/colors.dart';
 import 'package:budget/database/initializeDefaultDatabase.dart';
@@ -305,6 +307,17 @@ bool errorSigningInDuringCloud = false;
 Future<bool> runAllCloudFunctions(BuildContext context,
     {bool forceSignIn = false}) async {
   print("Running All Cloud Functions");
+  if (FireflyMode.enabled) {
+    runningCloudFunctions = true;
+    try {
+      await runFireflySync();
+      await getExchangeRates();
+    } catch (e) {
+      logFirefly("Error running Firefly sync: $e");
+    }
+    runningCloudFunctions = false;
+    return true;
+  }
   runningCloudFunctions = true;
   errorSigningInDuringCloud = false;
   try {
@@ -458,7 +471,10 @@ class PageNavigationFrameworkState extends State<PageNavigationFramework> {
 
       print("Entire app loaded");
 
+      await startFireflyScheduler();
+
       database.watchAllForAutoSync().listen((event) {
+        if (FireflyMode.enabled) return fireflyLocalWrite();
         // Must be logged in to perform an automatic sync - googleUser != null
         // If we remove this, it will ask the user to login though - but it can be annoying
         // Users can visually see the last time of sync, especially on web where sign-in is not automatic,

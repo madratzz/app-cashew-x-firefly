@@ -1,3 +1,4 @@
+import 'package:budget/firefly/firefly.dart';
 import 'package:budget/colors.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/struct/settings.dart';
@@ -12,6 +13,9 @@ import 'package:flutter/services.dart';
 import 'package:timer_builder/timer_builder.dart';
 
 bool enableSwipeDownToRefresh(BuildContext context) {
+  if (FireflyMode.enabled) {
+    return selectingTransactionsActive == 0 && runningCloudFunctions == false;
+  }
   return selectingTransactionsActive == 0 &&
       runningCloudFunctions == false &&
       appStateSettings["hasSignedIn"] != false &&
