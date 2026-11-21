@@ -1,0 +1,5 @@
+Flutter 3.19.6 with Dart 3.3.4
+Analyzer issues: 5266
+
+Measured from budget/ with:
+fvm flutter analyze --no-fatal-infos --no-fatal-warnings
