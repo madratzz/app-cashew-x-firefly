@@ -160,6 +160,7 @@ flutter:
     - assets/static/
     - assets/icons/fun/
     - assets/translations/generated/
+    - assets/translations/firefly/en/
     - assets/static/generated/
     - assets/static/generated/currencies.json
     - assets/static/language-names.json
