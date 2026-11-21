@@ -109,7 +109,7 @@ Each query stub below is an extension on `FinanceDatabase` under `lib/firefly/db
 | WP-04 | `delete_log_queries.dart`, `FireflyDeleteLogQueries` | `fireflyDeleteLogs({DateTime? after}) → List<DeleteLog>` |
 | WP-05 | `reset_queries.dart`, `FireflyResetQueries` | `clearFireflyFinanceData() → void` |
 | WP-10 | `wallet_queries.dart`, `FireflyWalletQueries` | `fireflyWallet(String pk) → TransactionWallet?`, `fireflyAccountDetails(String walletPk) → AccountDetail?` |
-| WP-11 | `category_queries.dart`, `FireflyCategoryQueries` | `fireflyCategory(String pk) → TransactionCategory?` |
+| WP-11 | `category_queries.dart`, `FireflyCategoryQueries` | `fireflyCategory(String pk) → TransactionCategory?`, `ensureUncategorizedCategory() → String` |
 | WP-12 | `transaction_queries.dart`, `FireflyTransactionQueries` | `fireflyTransaction(String pk) → Transaction?` |
 | WP-20a | `budget_queries.dart`, `FireflyBudgetQueries` | `fireflyBudget(String pk) → Budget?` |
 | WP-21a | `objective_queries.dart`, `FireflyObjectiveQueries` | `fireflyObjective(String pk) → Objective?` |
@@ -122,6 +122,8 @@ Each query stub below is an extension on `FinanceDatabase` under `lib/firefly/db
 | WP-35a | `attachment_queries.dart`, `FireflyAttachmentQueries` | `fireflyTransactionAttachments(String transactionPk) → List<Attachment>`, `persistFireflyAttachmentDraft(String transactionPk, List<Attachment> attachments) → void` |
 | WP-36 | `filter_queries.dart`, `FireflyFilterQueries` | `fireflyFilteredTransactionPks({String? payeePk, List<String> tagPks = const [], bool matchAllTags = false, String? billPk, bool? reconciled, bool? hasAttachment}) → List<String>` |
 | WP-40a | `rule_queries.dart`, `FireflyRuleQueries` | `fireflyRules({bool groups = false}) → List<FireflyCachedResource>` |
+
+The local-only `firefly-uncategorized` category has the name “Uncategorized” and no Firefly ID mapping. Category pulls use it for transactions detached by a remote category deletion. WP-12 uses `ensureUncategorizedCategory()` when a remote transaction has no category and sends a null `category_id` for transactions using this local category.
 
 ## Sync interfaces
 
