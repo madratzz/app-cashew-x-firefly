@@ -1,3 +1,4 @@
+import 'package:budget/platform/capabilities.dart';
 import 'dart:convert';
 
 import 'package:budget/colors.dart';
@@ -66,8 +67,13 @@ class _ImportCSVState extends State<ImportCSV> {
         } else {
           File file = File(result.files.single.path ?? "");
           Uint8List fileBytes = await file.readAsBytes();
-          DecodingResult decoded = await CharsetDetector.autoDecode(fileBytes);
-          csvString = decoded.string;
+          if (PlatformCapabilities.supportsCharsetDetector) {
+            DecodingResult decoded =
+                await CharsetDetector.autoDecode(fileBytes);
+            csvString = decoded.string;
+          } else {
+            csvString = utf8.decode(fileBytes, allowMalformed: true);
+          }
         }
         // print(csvString);
         return csvString;

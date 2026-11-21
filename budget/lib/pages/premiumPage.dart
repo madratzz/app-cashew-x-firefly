@@ -1,3 +1,4 @@
+import 'package:budget/platform/capabilities.dart';
 import 'dart:async';
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
@@ -26,8 +27,10 @@ import 'package:sa3_liquid/sa3_liquid.dart';
 import 'package:budget/widgets/openContainerNavigation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
-bool premiumPopupEnabled = kIsWeb == false;
-bool tryStoreEnabled = kIsWeb == false && kDebugMode == false;
+// Desktop builds treat premium like the web build does (decision D7)
+bool premiumPopupEnabled = PlatformCapabilities.supportsInAppPurchase;
+bool tryStoreEnabled =
+    PlatformCapabilities.supportsInAppPurchase && kDebugMode == false;
 StreamSubscription<List<PurchaseDetails>>? purchaseListener;
 Map<String, ProductDetails> storeProducts = {};
 Map<String, String> productIDs = {

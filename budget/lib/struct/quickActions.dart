@@ -1,3 +1,4 @@
+import 'package:budget/platform/capabilities.dart';
 import "package:budget/database/tables.dart";
 import "package:budget/functions.dart";
 import "package:budget/pages/addTransactionPage.dart";
@@ -19,7 +20,7 @@ Throttler quickActionThrottler =
     Throttler(duration: Duration(milliseconds: 350));
 
 void runQuickActionsPayLoads(context) async {
-  if (kIsWeb) return;
+  if (PlatformCapabilities.supportsQuickActions == false) return;
   final QuickActions quickActions = const QuickActions();
   quickActions.initialize((String quickAction) async {
     if (!quickActionThrottler.canProceed()) return;

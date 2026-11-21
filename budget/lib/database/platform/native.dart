@@ -6,6 +6,18 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:drift/drift.dart';
 import 'dart:io';
+import 'package:budget/platform/capabilities.dart';
+
+// Mobile keeps the upstream location; desktop must not write into the
+// user's Documents folder.
+Future<Directory> _databaseFolder() async {
+  if (PlatformCapabilities.isDesktop) {
+    final Directory folder = await getApplicationSupportDirectory();
+    await folder.create(recursive: true);
+    return folder;
+  }
+  return getApplicationDocumentsDirectory();
+}
 
 Future<FinanceDatabase> constructDb(String dbName,
     {Uint8List? initialDataWeb}) async {
@@ -13,7 +25,7 @@ Future<FinanceDatabase> constructDb(String dbName,
   final db = LazyDatabase(() async {
     // put the database file, called db.sqlite here, into the documents folder
     // for your app.
-    final dbFolder = await getApplicationDocumentsDirectory();
+    final dbFolder = await _databaseFolder();
     final file = File(p.join(dbFolder.path, dbName + '.sqlite'));
     // return NativeDatabase(file);
     QueryExecutor foregroundExecutor = NativeDatabase(file);
@@ -27,7 +39,7 @@ Future<DBFileInfo> getCurrentDBFileInfo() async {
   Uint8List dbFileBytes;
   late Stream<List<int>> mediaStream;
 
-  final dbFolder = await getApplicationDocumentsDirectory();
+  final dbFolder = await _databaseFolder();
   final dbFile = File(p.join(dbFolder.path, 'db.sqlite'));
   //print("FILE SIZE:" + (dbFile.lengthSync() / 1e+6).toString());
   dbFileBytes = await dbFile.readAsBytes();
@@ -37,7 +49,7 @@ Future<DBFileInfo> getCurrentDBFileInfo() async {
 }
 
 Future overwriteDefaultDB(Uint8List dataStore) async {
-  final dbFolder = await getApplicationDocumentsDirectory();
+  final dbFolder = await _databaseFolder();
   final dbFile = File(p.join(dbFolder.path, 'db.sqlite'));
   await dbFile.writeAsBytes(dataStore);
   // we need to be able to sync with others after the restore
