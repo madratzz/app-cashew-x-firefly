@@ -14,6 +14,7 @@ class SyncScheduler {
   late final StreamSubscription<SyncProgress> _progress;
   Timer? _foregroundTimer;
   Timer? _debounce;
+  Timer? _localWriteSuppression;
   bool _disposed = false;
   bool _showingProgress = false;
 
@@ -38,9 +39,21 @@ class SyncScheduler {
   }
 
   void localWrite() {
-    if (_foregroundTimer == null || !engine.context.config.syncOnChange) return;
+    if (_foregroundTimer == null ||
+        !engine.context.config.syncOnChange ||
+        (_localWriteSuppression?.isActive ?? false)) {
+      return;
+    }
     _debounce?.cancel();
     _debounce = Timer(const Duration(seconds: 5), _trigger);
+  }
+
+  /// Ignore watcher events that arrive after a sync has written to Drift.
+  void suppressLocalWrites(Duration duration) {
+    if (_disposed) return;
+    _localWriteSuppression?.cancel();
+    _localWriteSuppression =
+        Timer(duration, () => _localWriteSuppression = null);
   }
 
   void _trigger() => unawaited(syncNow());
@@ -74,6 +87,7 @@ class SyncScheduler {
     if (_disposed) return;
     _disposed = true;
     pause();
+    _localWriteSuppression?.cancel();
     unawaited(_progress.cancel());
     _clearProgress();
     engine.cancel();

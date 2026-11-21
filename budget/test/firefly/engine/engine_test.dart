@@ -405,6 +405,26 @@ void main() {
     expect(engine.requests.last, isTrue);
     scheduler.dispose();
   });
+
+  testWidgets('scheduler ignores late watcher events during suppression',
+      (tester) async {
+    final engine = _RecordingEngine(context);
+    final scheduler = SyncScheduler(engine);
+    addTearDown(engine.dispose);
+    addTearDown(scheduler.dispose);
+    scheduler.start();
+
+    scheduler.suppressLocalWrites(const Duration(seconds: 1));
+    await tester.pump(const Duration(milliseconds: 500));
+    scheduler.localWrite();
+    await tester.pump(const Duration(seconds: 5));
+    expect(engine.requests, [false]);
+
+    scheduler.localWrite();
+    await tester.pump(const Duration(seconds: 5));
+    expect(engine.requests, [false, false]);
+    scheduler.dispose();
+  });
 }
 
 class _Syncer extends EntitySyncer {
