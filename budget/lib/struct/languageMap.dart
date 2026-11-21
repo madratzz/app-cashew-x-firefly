@@ -80,6 +80,26 @@ Map<String, Locale> supportedLocales = {
 class RootBundleAssetLoaderCustomLocaleLoader extends RootBundleAssetLoader {
   const RootBundleAssetLoaderCustomLocaleLoader();
 
+  static const _fireflyPath = 'assets/translations/firefly/en/';
+
+  @override
+  Future<Map<String, dynamic>> load(String path, Locale locale) async {
+    final translations = await super.load(path, locale) ?? <String, dynamic>{};
+    final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+    final files = manifest
+        .listAssets()
+        .where((asset) =>
+            asset.startsWith(_fireflyPath) && asset.endsWith('.json'))
+        .toList()
+      ..sort();
+    for (final file in files) {
+      final overlay =
+          jsonDecode(await rootBundle.loadString(file)) as Map<String, dynamic>;
+      translations.addAll(overlay);
+    }
+    return translations;
+  }
+
   @override
   String getLocalePath(String basePath, Locale locale) {
     print("Initial Locale: " + locale.toString());
