@@ -238,6 +238,29 @@ void main() {
     expect(writes().single.method, 'PUT');
   });
 
+  test('ignores new remote fields at the same timestamp by default', () async {
+    seed('10', 'Baseline', at: fixtureTime);
+    await sync.pull();
+
+    seed('10', 'New remote fields', at: fixtureTime);
+    await sync.pull();
+
+    expect(await name('remote-10'), 'Baseline');
+  });
+
+  test('can compare remote fields when stored timestamps match', () async {
+    adapter.checkEqualTimestamps = true;
+    seed('10', 'Baseline', at: fixtureTime);
+    await sync.pull();
+
+    seed('10', 'New remote fields', at: fixtureTime);
+    await sync.pull();
+
+    expect(await name('remote-10'), 'New remote fields');
+    expect((await mappings.byLocal(_type, 'remote-10'))?.remoteUpdatedAt,
+        fixtureTime.toLocal());
+  });
+
   test('rolls back a failed local write and its associated conflict', () async {
     seed('10', 'Baseline', at: fixtureTime);
     await sync.pull();
@@ -402,6 +425,10 @@ class _CategoryCollection extends CollectionAdapter<JsonObject> {
       FireflyPage<RemoteCollectionRow<JsonObject>>)? rewritePage;
   String? duplicateId;
   bool failApply = false;
+  bool checkEqualTimestamps = false;
+
+  @override
+  bool get compareHashWhenTimestampsEqual => checkEqualTimestamps;
 
   @override
   FireflyEntityType get type => _type;

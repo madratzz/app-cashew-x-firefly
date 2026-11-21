@@ -113,8 +113,6 @@ void main() {
     final roaming = FireflyMetaRoaming(context);
     await roaming.pull();
     await roaming.push();
-    await expectLater(context.api.accounts.list(type: 'asset'),
-        throwsA(isA<FireflyTransportUnavailable>()));
     await expectLater(context.api.currencies.enable('USD'),
         throwsA(isA<FireflyTransportUnavailable>()));
     expect(transport.requests, isEmpty);

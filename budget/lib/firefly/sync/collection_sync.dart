@@ -47,6 +47,10 @@ abstract class CollectionAdapter<T> {
   const CollectionAdapter();
 
   FireflyEntityType get type;
+
+  /// Opt in for resources whose synced fields can change without a new timestamp.
+  bool get compareHashWhenTimestampsEqual => false;
+
   Future<FireflyPage<RemoteCollectionRow<T>>> page(int page, int limit);
   Future<List<LocalCollectionRow>> listLocal();
   Future<LocalCollectionRow?> readLocal(String pk);
@@ -172,10 +176,14 @@ class CollectionSync<T> {
     final local = await adapter.readLocal(mapping.localPk);
     final updatedAt = _driftInstant(remote.updatedAt);
     final previous = mapping.remoteUpdatedAt;
-    // Some resources omit updated_at. Compare canonical fields in that case.
+    // Some resources omit updated_at or can change without advancing it.
     final changed = updatedAt == null
         ? remote.hash != mapping.syncedHash
-        : previous == null || updatedAt.isAfter(previous);
+        : previous == null ||
+            updatedAt.isAfter(previous) ||
+            (adapter.compareHashWhenTimestampsEqual &&
+                updatedAt.isAtSameMomentAs(previous) &&
+                remote.hash != mapping.syncedHash);
     final decision = resolveConflict(
       local: _localVersion(mapping, local),
       remote: changed ? RemoteSyncVersion.changed : RemoteSyncVersion.unchanged,

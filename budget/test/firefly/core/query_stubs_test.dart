@@ -26,8 +26,8 @@ void main() {
           WalletsCompanion.insert(name: 'Example', order: 0),
         );
 
+    expect(await db.fireflyWallet(wallet.walletPk), wallet);
     for (final result in await Future.wait<Object?>([
-      db.fireflyWallet(wallet.walletPk),
       db.fireflyAccountDetails(wallet.walletPk),
       db.fireflyCategory('sample'),
       db.fireflyBudget('sample'),

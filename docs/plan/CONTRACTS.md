@@ -108,7 +108,7 @@ Each query stub below is an extension on `FinanceDatabase` under `lib/firefly/db
 |---|---|---|
 | WP-04 | `delete_log_queries.dart`, `FireflyDeleteLogQueries` | `fireflyDeleteLogs({DateTime? after}) → List<DeleteLog>` |
 | WP-05 | `reset_queries.dart`, `FireflyResetQueries` | `clearFireflyFinanceData() → void` |
-| WP-10 | `wallet_queries.dart`, `FireflyWalletQueries` | `fireflyWallet(String pk) → TransactionWallet?`, `fireflyAccountDetails(String walletPk) → AccountDetail?` |
+| WP-10 | `wallet_queries.dart`, `FireflyWalletQueries` | `fireflyWallet(String pk) → TransactionWallet?`, `fireflyAccountDetails(String walletPk) → AccountDetail?`, `deleteWalletLocally(String walletPk) → void` (atomically removes the wallet and its transactions/details, queues one wallet delete, and repairs the selection) |
 | WP-11 | `category_queries.dart`, `FireflyCategoryQueries` | `fireflyCategory(String pk) → TransactionCategory?`, `ensureUncategorizedCategory() → String` |
 | WP-12 | `transaction_queries.dart`, `FireflyTransactionQueries` | `fireflyTransaction(String pk) → Transaction?` |
 | WP-20a | `budget_queries.dart`, `FireflyBudgetQueries` | `fireflyBudget(String pk) → Budget?` |
@@ -194,7 +194,7 @@ The const `transactionContributors` list uses the following order and stable IDs
 | `updateRemote(FireflyIdMapping mapping, LocalCollectionRow local)` | `RemoteCollectionRow<T>` |
 | `findDuplicate(LocalCollectionRow local, FireflyValidation error)` | `RemoteCollectionRow<T>?`. Check whether the validation error is a duplicate before looking up an existing resource |
 
-The adapter exposes `type: FireflyEntityType`. `CollectionSync<T>({required CollectionAdapter<T> adapter, required IdMapRepository idMap, required ConflictRepository conflicts, required int pageSize, DateTime Function()? now, String Function(String) redactError = redactFireflyLog})` exposes these fields with a resolved clock, plus `pull() → Future<CollectionPullResult>`, `push() → Future<void>`, `pushDeletes() → Future<void>`. `CollectionPullResult({required bool complete, required int seen})` exposes both fields.
+The adapter exposes `type: FireflyEntityType` and `compareHashWhenTimestampsEqual: bool` (default false). Enable the latter when a resource can change its synced fields while keeping the same stored timestamp. A canonical hash mismatch then counts as a remote change. `CollectionSync<T>({required CollectionAdapter<T> adapter, required IdMapRepository idMap, required ConflictRepository conflicts, required int pageSize, DateTime Function()? now, String Function(String) redactError = redactFireflyLog})` exposes these fields with a resolved clock, plus `pull() → Future<CollectionPullResult>`, `push() → Future<void>`, `pushDeletes() → Future<void>`. `CollectionPullResult({required bool complete, required int seen})` exposes both fields.
 
 ### Worked example using a category adapter
 
