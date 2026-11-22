@@ -1,5 +1,6 @@
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
+import 'package:budget/firefly/ui/pages/piggy_banks/piggy_bank_ui.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addObjectivePage.dart';
 import 'package:budget/pages/editObjectivesPage.dart';
@@ -174,7 +175,8 @@ class ObjectiveList extends StatelessWidget {
                 type: ObjectiveType.goal),
           );
         }
-        Widget addButton = showAddButton == false
+        Widget addButton = showAddButton == false ||
+                fireflyHidesLoanCreation(objectiveType)
             ? SizedBox.shrink()
             : Column(
                 children: [
@@ -239,7 +241,8 @@ class ObjectiveList extends StatelessWidget {
                       if ((showDemoObjectives && index == 0) ||
                           (showDemoObjectives == false &&
                               index == objectivesList.length)) {
-                        return showAddButton == false
+                        return showAddButton == false ||
+                                fireflyHidesLoanCreation(objectiveType)
                             ? SizedBox.shrink()
                             : AddButton(
                                 onTap: () {},
@@ -1062,6 +1065,28 @@ class WatchTotalAndAmountOfObjective extends StatelessWidget {
               Provider.of<AllWallets>(context, listen: true), objective);
           double totalAmount = snapshot.data ?? 0;
           if (objective.income == false) totalAmount = totalAmount * -1;
+          if (fireflyPiggyMode(objective)) {
+            // Firefly mode: progress is the server's saved amount
+            return StreamBuilder<double?>(
+              stream: watchFireflyPiggyBankCurrentAmount(
+                  database, objective.objectivePk),
+              builder: (context, serverSnapshot) {
+                double serverTotal = serverSnapshot.data == null
+                    ? totalAmount
+                    : serverSnapshot.data! *
+                        amountRatioToPrimaryCurrency(
+                          Provider.of<AllWallets>(context),
+                          Provider.of<AllWallets>(context)
+                              .indexedByPk[objective.walletFk]
+                              ?.currency,
+                        );
+                double percentageTowardsGoal = absoluteZero(
+                    objectiveAmount == 0 ? 0 : serverTotal / objectiveAmount);
+                return builder(
+                    objectiveAmount, serverTotal, percentageTowardsGoal);
+              },
+            );
+          }
           double percentageTowardsGoal =
               objectiveAmount == 0 ? 0 : totalAmount / objectiveAmount;
           percentageTowardsGoal = absoluteZero(percentageTowardsGoal);

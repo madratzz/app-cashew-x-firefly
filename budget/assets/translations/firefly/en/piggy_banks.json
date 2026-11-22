@@ -1,0 +1,17 @@
+{
+  "firefly-piggy-add-money": "Add money",
+  "firefly-piggy-remove-money": "Remove money",
+  "firefly-piggy-amount": "Amount",
+  "firefly-piggy-save": "Save",
+  "firefly-piggy-cancel": "Cancel",
+  "firefly-piggy-saved-total": "Saved: {}",
+  "firefly-piggy-update-failed": "Could not update the piggy bank on Firefly III",
+  "firefly-piggy-not-synced": "Sync this goal with Firefly III first",
+  "firefly-piggy-history": "Piggy bank history",
+  "firefly-piggy-no-history": "No history yet",
+  "firefly-piggy-linked-transaction": "Linked to a transaction",
+  "firefly-piggy-bank": "Piggy bank",
+  "firefly-piggy-none": "None",
+  "firefly-piggy-transfer-only": "Only applies when creating a transfer. Existing links are managed by Firefly III",
+  "firefly-piggy-loans-unavailable": "Loans are not available in Firefly mode"
+}

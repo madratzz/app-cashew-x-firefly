@@ -1,4 +1,6 @@
 import 'package:budget/database/tables.dart';
+import 'package:budget/firefly/firefly.dart';
+import 'package:budget/firefly/ui/pages/piggy_banks/piggy_bank_ui.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addCategoryPage.dart';
 import 'package:budget/pages/addTransactionPage.dart';
@@ -157,7 +159,8 @@ class _AddObjectivePageState extends State<AddObjectivePage>
         hasPadding: false,
         child: SelectAmount(
           allowZero: allowZero,
-          hideWalletPickerIfOneCurrency: true,
+          // A Firefly piggy bank needs an explicit asset account
+          hideWalletPickerIfOneCurrency: !FireflyMode.enabled,
           onlyShowCurrencyIcon: true,
           amountPassed: selectedAmount.toString(),
           setSelectedAmount: (amount, calculation) {
@@ -346,7 +349,7 @@ class _AddObjectivePageState extends State<AddObjectivePage>
       } else {
         _incomeTabController.animateTo(0);
       }
-    } else {
+    } else if (!fireflyHidesLoanCreation(objectiveType)) {
       Future.delayed(Duration.zero, () async {
         if (widget.objective == null) {
           bool result = await premiumPopupObjectives(context,
@@ -391,6 +394,24 @@ class _AddObjectivePageState extends State<AddObjectivePage>
 
   @override
   Widget build(BuildContext context) {
+    // Firefly mode syncs goals only, so new loans are not offered
+    if (widget.objective == null && fireflyHidesLoanCreation(objectiveType)) {
+      return PageFramework(
+        dragDownToDismiss: true,
+        title: "add-loan".tr(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsetsDirectional.all(20),
+              child: TextFont(
+                text: "firefly-piggy-loans-unavailable".tr(),
+                maxLines: 5,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     return WillPopScope(
       onWillPop: () async {
         if (widget.objective != null) {

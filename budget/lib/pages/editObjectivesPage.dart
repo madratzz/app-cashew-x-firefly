@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
+import 'package:budget/firefly/ui/pages/piggy_banks/piggy_bank_ui.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addObjectivePage.dart';
 import 'package:budget/pages/editBudgetPage.dart';
@@ -78,7 +79,9 @@ class _EditObjectivesPageState extends State<EditObjectivesPage> {
             ? "loans".tr()
             : "goals".tr(),
         scrollToTopButton: true,
-        floatingActionButton: AnimateFABDelayed(
+        floatingActionButton: fireflyHidesLoanCreation(widget.objectiveType)
+            ? null
+            : AnimateFABDelayed(
           fab: AddFAB(
             tooltip: widget.objectiveType == ObjectiveType.loan
                 ? "add-loan".tr()
@@ -94,6 +97,7 @@ class _EditObjectivesPageState extends State<EditObjectivesPage> {
             showButtons: true,
             keepOutFirst: true,
             items: [
+              if (!fireflyHidesLoanCreation(widget.objectiveType))
               DropdownItemMenu(
                 id: "add-loan",
                 label: widget.objectiveType == ObjectiveType.loan
