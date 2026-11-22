@@ -39,8 +39,8 @@ void main() {
       final device = E2eDevice(target, clock);
       final second = E2eDevice(target, clock);
       final snapshot = live ? await E2eServerSnapshot.take(target) : null;
-      final picked = Directory(
-          '${(await getTemporaryDirectory()).path}/firefly-att-$run');
+      final picked =
+          Directory('${(await getTemporaryDirectory()).path}/firefly-att-$run');
       try {
         final admin = device.admin;
         final checkingId = (await admin.accounts.create({
@@ -68,14 +68,23 @@ void main() {
           categoryPk: (await device.localPk(_category, categoryId))!,
         );
 
-        // Every byte value, plus random content, so encoding bugs show.
+        // Firefly sniffs uploads against a type allow-list (random bytes
+        // read as image/x-tga and were rejected), so the file starts as a
+        // PDF. Every byte value and random content follow, so encoding bugs
+        // show.
         final random = Random(7);
         final bytes = [
+          ...'%PDF-1.4\n%'.codeUnits,
+          0xE2,
+          0xE3,
+          0xCF,
+          0xD3,
+          0x0A,
           for (var i = 0; i < 256; i++) i,
           for (var i = 0; i < 200 * 1024; i++) random.nextInt(256),
         ];
         await picked.create(recursive: true);
-        final file = File('${picked.path}/scan.bin');
+        final file = File('${picked.path}/scan.pdf');
         await file.writeAsBytes(bytes, flush: true);
 
         // The same stream the file picker hands over for a path on disk.
@@ -83,10 +92,10 @@ void main() {
         await draft.load(pk);
         draft.attachments = [
           await device.db.prepareFireflyAttachment(
-            filename: 'scan.bin',
+            filename: 'scan.pdf',
             title: named('Scan'),
             bytes: file.openRead(),
-            mime: 'application/octet-stream',
+            mime: 'application/pdf',
           ),
         ];
         await draft.persist(pk);
@@ -95,8 +104,7 @@ void main() {
         // The upload waits for the journal id from the first push.
         await sync(device);
 
-        final mapping =
-            (await device.context.idMap.byLocal(_transaction, pk))!;
+        final mapping = (await device.context.idMap.byLocal(_transaction, pk))!;
         final remote = (await admin.attachments.list(limit: 100))
             .items
             .where((item) => item.attachableId == mapping.remoteSubId)
