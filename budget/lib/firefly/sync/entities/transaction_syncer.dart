@@ -6,6 +6,7 @@ import 'package:budget/firefly/api/transport.dart';
 import 'package:budget/firefly/config/log_redaction.dart';
 import 'package:budget/firefly/db/category_queries.dart';
 import 'package:budget/firefly/db/id_map_repository.dart';
+import 'package:budget/firefly/db/split_queries.dart';
 import 'package:budget/firefly/db/sync_meta_repository.dart';
 import 'package:budget/firefly/db/transaction_queries.dart';
 import 'package:budget/firefly/db/wallet_queries.dart';
@@ -27,7 +28,9 @@ const _initialTotal = 'transactionPage.total';
 const _searchUnavailable = 'transactionSearchUnavailable';
 
 class TransactionSyncer extends EntitySyncer {
-  const TransactionSyncer();
+  const TransactionSyncer({this.contributors = transactionContributors});
+
+  final List<TransactionContributor> contributors;
 
   @override
   FireflyEntityType get type => _transaction;
@@ -48,25 +51,25 @@ class TransactionSyncer extends EntitySyncer {
   @override
   Future<void> pull(SyncContext context) async {
     if (!context.config.mode || context.isCancelled()) return;
-    await _TransactionCycle(context).pull();
+    await _TransactionCycle(context, contributors).pull();
   }
 
   @override
   Future<void> push(SyncContext context) async {
     if (!context.config.mode || context.isCancelled()) return;
-    await _TransactionCycle(context).push();
+    await _TransactionCycle(context, contributors).push();
   }
 
   @override
   Future<void> pushDeletes(SyncContext context) async {
     if (!context.config.mode || context.isCancelled()) return;
-    await _TransactionCycle(context).pushDeletes();
+    await _TransactionCycle(context, contributors).pushDeletes();
   }
 
   @override
   Future<void> rereadPushed(SyncContext context) async {
     if (!context.config.mode || context.isCancelled()) return;
-    final cycle = _TransactionCycle(context);
+    final cycle = _TransactionCycle(context, contributors);
     for (final id in context.pushedTransactionIds.toList()) {
       if (context.isCancelled()) return;
       await cycle.fetchGroup(id, preserveDirty: true);
@@ -76,9 +79,10 @@ class TransactionSyncer extends EntitySyncer {
 }
 
 class _TransactionCycle {
-  _TransactionCycle(this.context);
+  _TransactionCycle(this.context, this.contributors);
 
   final SyncContext context;
+  final List<TransactionContributor> contributors;
 
   FinanceDatabase get db => context.db;
   IdMapRepository get idMap => context.idMap;
@@ -302,8 +306,10 @@ class _TransactionCycle {
         if (splits.isEmpty) throw const FireflyInvalidPayload();
         final mappings = await idMap.forRemoteGroup(_transaction, remote.id);
         final splitIds = <String>{};
-        final groupPk = await _applyGroupTitle(remote, splits.length > 1,
-            preserveDirty: preserveDirty);
+        final groupPk = splits.length > 1
+            ? await _applyGroupTitle(remote, splits, mappings,
+                preserveDirty: preserveDirty)
+            : null;
         for (final split in splits) {
           final journal = _journal(split);
           if (!splitIds.add(journal)) throw const FireflyInvalidPayload();
@@ -323,13 +329,18 @@ class _TransactionCycle {
         if (groupPk == null) await _removeEmptyGroup(remote.id);
       });
 
-  Future<String?> _applyGroupTitle(FireflyTransaction remote, bool multiple,
-      {required bool preserveDirty}) async {
-    if (!multiple) return null;
+  Future<String> _applyGroupTitle(
+    FireflyTransaction remote,
+    List<FireflyTransactionSplit> splits,
+    List<FireflyIdMapping> mappings, {
+    required bool preserveDirty,
+  }) async {
     final mapping = await idMap.byRemote(_group, remote.id);
-    final pk = mapping?.localPk ?? const Uuid().v4();
+    final pk = mapping?.localPk ??
+        await _recoverGroupPk(splits, mappings) ??
+        const Uuid().v4();
     final local = await db.fireflyTransactionGroup(pk);
-    final title = remote.groupTitle;
+    final title = remote.groupTitle == '' ? null : remote.groupTitle;
     final hash = _titleHash(title);
     final dirty =
         mapping != null && local != null && _groupDirty(mapping, local);
@@ -355,8 +366,11 @@ class _TransactionCycle {
       return pk;
     }
     await db.into(db.transactionGroups).insertOnConflictUpdate(
-          TransactionGroup(
-              groupPk: pk, title: title, dateTimeModified: remote.updatedAt),
+          TransactionGroupsCompanion(
+            groupPk: Value(pk),
+            title: Value(title),
+            dateTimeModified: Value(remote.updatedAt),
+          ),
         );
     await idMap.put(FireflyIdMapping(
       entityType: _group,
@@ -371,6 +385,30 @@ class _TransactionCycle {
       state: FireflySyncState.synced,
     ));
     return pk;
+  }
+
+  Future<String?> _recoverGroupPk(
+    List<FireflyTransactionSplit> splits,
+    List<FireflyIdMapping> mappings,
+  ) async {
+    final keys = {
+      for (final map in mappings) map.localPk,
+      for (final split in splits)
+        if (_referencePk(split) case final pk?) pk,
+    };
+    for (final pk in keys) {
+      final row = await db.fireflyTransaction(pk);
+      final localGroupPk = row?.splitGroupFk;
+      if (localGroupPk == null) continue;
+      // Only recover a group from a local row with a journal mapping or a
+      // provisional marker. An unrelated remote internal reference is inert.
+      final map = await idMap.byLocal(_transaction, pk);
+      if (map != null &&
+          (mappings.contains(map) || IdMapRepository.isProvisional(map))) {
+        return localGroupPk;
+      }
+    }
+    return null;
   }
 
   bool _groupDirty(FireflyIdMapping mapping, TransactionGroup group) =>
@@ -395,11 +433,17 @@ class _TransactionCycle {
 
     final from = await _localWallet(split.sourceId);
     final to = await _localWallet(split.destinationId);
-    final transfer = kind == FireflyTransactionType.transfer;
-    final ordinary = kind == FireflyTransactionType.withdrawal ||
-        kind == FireflyTransactionType.deposit;
-    final incoming = kind == FireflyTransactionType.deposit ||
-        (!ordinary && !transfer && to != null);
+    if ((from == null && _isLiabilityType(split.sourceType)) ||
+        (to == null && _isLiabilityType(split.destinationType))) {
+      return;
+    }
+    final transfer = kind == FireflyTransactionType.transfer ||
+        (from != null && to != null && _pairWireKind(from, to) == kind);
+    final ordinary = !transfer &&
+        (kind == FireflyTransactionType.withdrawal ||
+            kind == FireflyTransactionType.deposit);
+    final incoming = !transfer &&
+        (kind == FireflyTransactionType.deposit || (!ordinary && to != null));
     final wallet = incoming ? to : from;
     // For example, a liability side can be unmapped until liability sync is
     // enabled. Keep any existing mapping and retry on a later listing.
@@ -432,7 +476,11 @@ class _TransactionCycle {
     final recovered = await _recoverMappings(split, mappings);
     final updates = <_RemoteRow>[];
     for (final role in roles) {
-      final mapping = mappings[role] ?? recovered[role];
+      final assetRole =
+          from?.accountKind == AccountKind.liability ? _destination : _source;
+      final mapping = mappings[role] ??
+          recovered[role] ??
+          (transfer && role == assetRole ? mappings[_single] : null);
       final pk = mapping?.localPk ?? const Uuid().v4();
       final local = await db.fireflyTransaction(pk);
       final isIncoming = role == _destination || incoming;
@@ -464,12 +512,11 @@ class _TransactionCycle {
         subCategoryFk: Value(category.subcategory),
         dateCreated: date,
         dateTimeModified: Value(group.updatedAt),
-        fireflyType: Value(kind),
+        fireflyType: Value(transfer ? FireflyTransactionType.transfer : kind),
         splitGroupFk: Value(groupPk),
-        splitOrder: Value(groupPk == null ? null : split.order),
         reconciled: split.reconciled ?? false,
       );
-      for (final contributor in transactionContributors) {
+      for (final contributor in contributors) {
         row = await contributor.projectRemote(context, group, split, row);
       }
       updates.add((row: row, mapping: mapping, local: local, role: role));
@@ -492,7 +539,7 @@ class _TransactionCycle {
           remoteId: group.id,
           remoteSubId: _journal(split),
           remoteUpdatedAt: Value(group.updatedAt),
-          syncedHash: Value(await _hash(entry.row)),
+          syncedHash: Value(await _hash(entry.row, group: group, split: split)),
           lossyFields: Value(lossy.isEmpty ? null : jsonEncode(lossy)),
           state: map.state == FireflySyncState.pendingDelete || local == null
               ? FireflySyncState.pendingDelete
@@ -516,6 +563,7 @@ class _TransactionCycle {
     for (final entry in updates) {
       decisions.add(await _pullDecision(
         group,
+        split,
         entry,
         refreshContributors: refreshContributors && !pendingDelete,
         preserveDirty: preserveDirty,
@@ -530,7 +578,7 @@ class _TransactionCycle {
         final entry = updates[index];
         await idMap.put(entry.mapping!.copyWith(
           remoteUpdatedAt: Value(group.updatedAt),
-          syncedHash: Value(await _hash(entry.row)),
+          syncedHash: Value(await _hash(entry.row, group: group, split: split)),
           lossyFields: Value(lossy.isEmpty ? null : jsonEncode(lossy)),
         ));
       }
@@ -555,8 +603,8 @@ class _TransactionCycle {
       }
     }
 
-    final stale =
-        mappings.values.where((map) => !roles.contains(map.remoteRole));
+    final stale = mappings.values
+        .where((map) => !updates.any((entry) => entry.mapping == map));
     await _removeMappings(stale);
     for (var index = 0; index < updates.length; index++) {
       final entry = updates[index];
@@ -586,7 +634,7 @@ class _TransactionCycle {
     for (var index = 0; index < updates.length; index++) {
       final entry = updates[index];
       if (decisions[index] == ConflictDecision.pushLocal) continue;
-      for (final contributor in transactionContributors) {
+      for (final contributor in contributors) {
         await contributor.pull(context, group, split, entry.row.transactionPk);
       }
       final stored = (await db.fireflyTransaction(entry.row.transactionPk))!;
@@ -604,6 +652,7 @@ class _TransactionCycle {
 
   Future<ConflictDecision> _pullDecision(
     FireflyTransaction group,
+    FireflyTransactionSplit split,
     _RemoteRow entry, {
     required bool refreshContributors,
     required bool preserveDirty,
@@ -620,7 +669,7 @@ class _TransactionCycle {
         _second(incomingAt).isBefore(previousAt)) {
       return ConflictDecision.none;
     }
-    final incoming = await _hash(entry.row);
+    final incoming = await _hash(entry.row, group: group, split: split);
     final localHash = local == null ? null : await _hash(local);
     final rejected = mapping.state == FireflySyncState.error;
     final sameRemoteVersion = _secondOrNull(incomingAt) == previousAt;
@@ -628,12 +677,15 @@ class _TransactionCycle {
     // locally mapped hash without a server edit. Same version means no edit.
     final deletingUnchanged =
         mapping.state == FireflySyncState.pendingDelete && sameRemoteVersion;
+    final localTopologyChanged = local != null &&
+        (local.splitGroupFk != entry.row.splitGroupFk ||
+            local.splitOrder != entry.row.splitOrder);
     final changed = !(rejected && sameRemoteVersion) &&
         !deletingUnchanged &&
         (incoming != mapping.syncedHash ||
-            (_secondOrNull(incomingAt) != previousAt &&
-                transactionContributors
-                    .any((contributor) => contributor.version > 0)));
+            (!localTopologyChanged &&
+                !sameRemoteVersion &&
+                contributors.any((contributor) => contributor.version > 0)));
     final localVersion = mapping.state == FireflySyncState.pendingDelete ||
             (local == null && mapping.state == FireflySyncState.error)
         ? LocalSyncVersion.pendingDelete
@@ -661,13 +713,8 @@ class _TransactionCycle {
   Future<Map<int, FireflyIdMapping>> _recoverMappings(
       FireflyTransactionSplit split,
       Map<int, FireflyIdMapping> mappings) async {
-    final reference = split.internalReference;
-    if (mappings.isNotEmpty ||
-        reference == null ||
-        !reference.startsWith('cashew:')) {
-      return {};
-    }
-    final localPk = reference.substring('cashew:'.length);
+    final localPk = _referencePk(split);
+    if (mappings.isNotEmpty || localPk == null) return {};
     final mapping = await idMap.byLocal(_transaction, localPk);
     if (mapping == null || !IdMapRepository.isProvisional(mapping)) return {};
     final pending = await idMap.forRemoteGroup(_transaction, mapping.remoteId);
@@ -769,9 +816,17 @@ class _TransactionCycle {
     };
     final seen = <String>{};
     final editedGroups = <String>{};
+    final seenLocalGroups = <String>{};
     for (final row in locals) {
       if (cancelled) return;
       if (!seen.add(row.transactionPk)) continue;
+      final groupPk = row.splitGroupFk;
+      if (groupPk != null) {
+        if (seenLocalGroups.add(groupPk)) {
+          await _pushLocalGroup(groupPk, maps, editedGroups);
+        }
+        continue;
+      }
       final mapping = maps[row.transactionPk];
       if (mapping?.state == FireflySyncState.pendingDelete) continue;
       if (!_eligible(row)) {
@@ -817,7 +872,7 @@ class _TransactionCycle {
         await _localRow(first, maps[first.transactionPk]),
         if (second != null) await _localRow(second, maps[second.transactionPk]),
       ];
-      if (draft.any(_needsPush)) await _create(draft);
+      if (draft.any(_needsPush)) await _create([draft]);
     }
     for (final map in await idMap.list(_group)) {
       if (cancelled) return;
@@ -827,6 +882,73 @@ class _TransactionCycle {
         await _updateGroup(map.remoteId);
       }
     }
+  }
+
+  Future<void> _pushLocalGroup(
+    String pk,
+    Map<String, FireflyIdMapping> maps,
+    Set<String> editedGroups,
+  ) async {
+    final group = await db.fireflyTransactionGroup(pk);
+    if (group == null) return;
+    final rows = await db.fireflyGroupSplits(pk);
+    final map = await idMap.byLocal(_group, pk);
+    final ids = {
+      if (map != null) map.remoteId,
+      for (final row in rows)
+        if (maps[row.transactionPk] case final mapped?)
+          if (!IdMapRepository.isProvisional(mapped)) mapped.remoteId,
+    };
+    // A draft can extend at most one existing Firefly group.
+    if (ids.length > 1) return;
+    final drafts = await _newGroupJournals(rows, maps);
+    if (ids.isEmpty) {
+      if (drafts.length > 1 && drafts.any((draft) => draft.any(_needsPush))) {
+        await _create(drafts, group: group);
+      }
+      return;
+    }
+
+    final id = ids.single;
+    final changed = (map == null || _groupDirty(map, group)) ||
+        drafts.any((draft) => draft.any(_needsPush));
+    var dirty = changed;
+    for (final row in rows) {
+      final mapping = maps[row.transactionPk];
+      if (dirty || mapping == null || IdMapRepository.isProvisional(mapping)) {
+        continue;
+      }
+      dirty = _needsPush(await _localRow(row, mapping));
+    }
+    if (dirty && editedGroups.add(id)) await _updateGroup(id, localGroupPk: pk);
+  }
+
+  Future<List<List<_LocalRow>>> _newGroupJournals(
+    List<Transaction> rows,
+    Map<String, FireflyIdMapping> maps,
+  ) async {
+    final byPk = {for (final row in rows) row.transactionPk: row};
+    final drafts = <List<_LocalRow>>[];
+    for (final row in rows) {
+      final partner = byPk[row.pairedTransactionFk];
+      if (row.pairedTransactionFk != null && (partner == null || row.income)) {
+        continue;
+      }
+      final members = [row, if (partner != null) partner];
+      if (members.any((member) {
+        final map = maps[member.transactionPk];
+        return map != null &&
+            (!IdMapRepository.isProvisional(map) ||
+                map.state == FireflySyncState.pendingDelete);
+      })) {
+        continue;
+      }
+      drafts.add([
+        for (final member in members)
+          await _localRow(member, maps[member.transactionPk]),
+      ]);
+    }
+    return drafts;
   }
 
   bool _eligible(Transaction row) =>
@@ -845,46 +967,29 @@ class _TransactionCycle {
           local.mapping!.state == FireflySyncState.localOnly ||
           _dirty(local.mapping!, local.row, local.hash));
 
-  Future<void> _create(List<_LocalRow> draft) async {
-    final first = draft.first.row;
-    final split = await _writableSplit(draft);
-    if (split == null || cancelled) return;
-    split['internal_reference'] = 'cashew:${first.transactionPk}';
-    final provisionalId = IdMapRepository.creatingId(first.transactionPk);
-    final maps = <FireflyIdMapping>[];
-    for (var index = 0; index < draft.length; index++) {
-      final item = draft[index];
-      maps.add(FireflyIdMapping(
-        entityType: _transaction,
-        localPk: item.row.transactionPk,
-        remoteId: provisionalId,
-        remoteSubId: '',
-        remoteRole: draft.length == 1 ? _single : index + 1,
-        state: FireflySyncState.creating,
-        localVersionAt: item.row.dateTimeModified,
-        syncedHash: item.hash,
-        attempts: (item.mapping?.attempts ?? 0) + 1,
-        lastAttemptAt: context.now(),
-      ));
+  Future<void> _create(List<List<_LocalRow>> drafts,
+      {TransactionGroup? group}) async {
+    final splits = <JsonObject>[];
+    for (final draft in drafts) {
+      if (!draft.every((entry) => _eligible(entry.row))) return;
+      final split = await _writableSplit(draft);
+      if (split == null || cancelled) return;
+      splits.add(split);
     }
-    final marked = await db.transaction(() async {
-      for (final item in draft) {
-        if (await db.fireflyTransaction(item.row.transactionPk) != item.row ||
-            await idMap.byLocal(_transaction, item.row.transactionPk) !=
-                item.mapping) {
-          return false;
-        }
-      }
-      for (final mapping in maps) {
-        await idMap.put(mapping);
-      }
-      return true;
-    });
-    if (!marked) return;
+    final body = <String, Object?>{
+      ..._writeFlags,
+      'error_if_duplicate_hash': true,
+      'transactions': splits,
+    };
+    if (group != null) await _contributeGroup(group, body);
+    final maps = await _markCreating(drafts, splits);
+    if (maps == null) return;
 
     final FireflyTransaction response;
     try {
-      response = await _postSplit(split, first);
+      response = group == null
+          ? await _postSplit(splits.single, drafts.single.first.row)
+          : await context.api.transactions.create(body);
     } on FireflyValidation catch (error) {
       final knownId =
           RegExp(r'Duplicate of transaction #(\d+)', caseSensitive: false)
@@ -892,7 +997,7 @@ class _TransactionCycle {
       if (knownId != null && !cancelled) {
         final existing = await fetchGroup(knownId);
         if (existing?.splits.any((item) =>
-                item.internalReference == split['internal_reference']) ??
+                item.internalReference == splits.first['internal_reference']) ??
             false) {
           return;
         }
@@ -900,25 +1005,109 @@ class _TransactionCycle {
       await _markError(maps, error);
       return;
     }
-    final splits = response.splits;
-    if (splits.length != 1) throw const FireflyInvalidPayload();
-    final journal = _journal(splits.single);
+
     await db.transaction(() async {
-      for (final mapping in maps) {
-        final latest = await idMap.byLocal(_transaction, mapping.localPk);
-        final row = await db.fireflyTransaction(mapping.localPk);
-        await idMap.put(mapping.copyWith(
-          remoteId: response.id,
-          remoteSubId: journal,
-          remoteUpdatedAt: Value(response.updatedAt),
-          state: row == null || latest?.state == FireflySyncState.pendingDelete
-              ? FireflySyncState.pendingDelete
-              : FireflySyncState.synced,
-          attempts: 0,
-        ));
-      }
+      await _confirmCreates(maps, response, single: group == null);
+      if (group != null) await _markGroupWritten(response, group);
     });
     context.pushedTransactionIds.add(response.id);
+  }
+
+  Future<void> _contributeGroup(TransactionGroup group, JsonObject body) async {
+    for (final contributor in contributors) {
+      await contributor.pushGroup(context, group, body);
+    }
+  }
+
+  Future<List<FireflyIdMapping>?> _markCreating(
+    List<List<_LocalRow>> drafts,
+    List<JsonObject> splits,
+  ) =>
+      db.transaction(() async {
+        final maps = <FireflyIdMapping>[];
+        for (var index = 0; index < drafts.length; index++) {
+          final draft = drafts[index];
+          final leadPk = draft.first.row.transactionPk;
+          splits[index]['internal_reference'] = 'cashew:$leadPk';
+          for (var role = 0; role < draft.length; role++) {
+            final item = draft[role];
+            final pk = item.row.transactionPk;
+            if (await db.fireflyTransaction(pk) != item.row ||
+                await idMap.byLocal(_transaction, pk) != item.mapping) {
+              return null;
+            }
+            maps.add(FireflyIdMapping(
+              entityType: _transaction,
+              localPk: pk,
+              remoteId: IdMapRepository.creatingId(leadPk),
+              remoteSubId: '',
+              remoteRole: draft.length == 1 ? _single : role + 1,
+              state: FireflySyncState.creating,
+              localVersionAt: item.row.dateTimeModified,
+              syncedHash: item.hash,
+              attempts: (item.mapping?.attempts ?? 0) + 1,
+              lastAttemptAt: context.now(),
+            ));
+          }
+        }
+        for (final map in maps) {
+          await idMap.put(map);
+        }
+        return maps;
+      });
+
+  Future<void> _confirmCreates(
+    List<FireflyIdMapping> maps,
+    FireflyTransaction response, {
+    bool single = false,
+  }) async {
+    if (maps.isEmpty) return;
+    final splits = response.splits;
+    if (single && splits.length != 1) throw const FireflyInvalidPayload();
+    final journals = {
+      for (final split in splits)
+        if (_referencePk(split) case final pk?)
+          IdMapRepository.creatingId(pk): _journal(split),
+    };
+    for (final map in maps) {
+      final journal = single ? _journal(splits.single) : journals[map.remoteId];
+      if (journal == null) throw const FireflyInvalidPayload();
+      await _markJournalWritten(map, response, journal);
+    }
+  }
+
+  Future<void> _markGroupWritten(
+          FireflyTransaction response, TransactionGroup group) =>
+      idMap.put(FireflyIdMapping(
+        entityType: _group,
+        localPk: group.groupPk,
+        remoteId: response.id,
+        remoteSubId: '',
+        remoteRole: _single,
+        remoteUpdatedAt: response.updatedAt,
+        localVersionAt: group.dateTimeModified,
+        syncedHash: _titleHash(group.title),
+        state: FireflySyncState.synced,
+        attempts: 0,
+      ));
+
+  Future<void> _markJournalWritten(
+    FireflyIdMapping map,
+    FireflyTransaction response,
+    String journal,
+  ) async {
+    final latest = await idMap.byLocal(_transaction, map.localPk);
+    final row = await db.fireflyTransaction(map.localPk);
+    await idMap.put(map.copyWith(
+      remoteId: response.id,
+      remoteSubId: journal,
+      remoteUpdatedAt: Value(response.updatedAt),
+      state: row == null || latest?.state == FireflySyncState.pendingDelete
+          ? FireflySyncState.pendingDelete
+          : FireflySyncState.synced,
+      lastError: const Value(null),
+      attempts: 0,
+    ));
   }
 
   Future<FireflyTransaction> _postSplit(
@@ -945,7 +1134,7 @@ class _TransactionCycle {
     }
   }
 
-  Future<void> _updateGroup(String id) async {
+  Future<void> _updateGroup(String id, {String? localGroupPk}) async {
     final group = await fetchGroup(id);
     if (group == null || cancelled) return;
     final mappings = await idMap.forRemoteGroup(_transaction, id);
@@ -972,26 +1161,60 @@ class _TransactionCycle {
       if (fields != null) submitted.addAll(local);
     }
     final titleMap = await idMap.byRemote(_group, id);
-    final localGroup = titleMap == null
-        ? null
-        : await db.fireflyTransactionGroup(titleMap.localPk);
-    final titleDirty = localGroup != null && _groupDirty(titleMap!, localGroup);
-    if ((submitted.isEmpty && !titleDirty) || cancelled) return;
+    final groupPk = titleMap?.localPk ?? localGroupPk;
+    final localGroup =
+        groupPk == null ? null : await db.fireflyTransactionGroup(groupPk);
+    final titleDirty = localGroup != null &&
+        (titleMap == null || _groupDirty(titleMap, localGroup));
+    final newDrafts = <List<_LocalRow>>[];
+    final newSplits = <JsonObject>[];
+    if (localGroup != null) {
+      final rows = await db.fireflyGroupSplits(localGroup.groupPk);
+      final maps = <String, FireflyIdMapping>{};
+      for (final row in rows) {
+        final map = await idMap.byLocal(_transaction, row.transactionPk);
+        if (map != null) maps[row.transactionPk] = map;
+      }
+      final drafts = await _newGroupJournals(rows, maps);
+      for (final draft in drafts) {
+        if (!draft.every((item) => _eligible(item.row)) ||
+            !draft.any(_needsPush)) {
+          continue;
+        }
+        final split = await _writableSplit(draft);
+        if (split == null) continue;
+        newDrafts.add(draft);
+        newSplits.add(split);
+      }
+    }
+    // A single journal plus a local draft becomes a mapped split group only
+    // when at least one additional journal is ready to submit.
+    if (titleMap == null && localGroup != null && newSplits.isEmpty) return;
+    if ((submitted.isEmpty && newSplits.isEmpty && !titleDirty) || cancelled) {
+      return;
+    }
 
+    final body = <String, Object?>{..._writeFlags};
+    final creates = await _markCreating(newDrafts, newSplits);
+    if (creates == null) return;
+    if (submitted.isNotEmpty || newSplits.isNotEmpty) {
+      body['transactions'] = [...outgoing, ...newSplits];
+    }
+    if (localGroup != null &&
+        (titleDirty || body.containsKey('transactions'))) {
+      await _contributeGroup(localGroup, body);
+    }
     final FireflyTransaction response;
     try {
-      response = await context.api.transactions.update(id, {
-        ..._writeFlags,
-        if (submitted.isNotEmpty) 'transactions': outgoing,
-        if (titleDirty) 'group_title': localGroup.title ?? '',
-      });
+      response = await context.api.transactions.update(id, body);
     } on FireflyNotFound {
       await _removeGroup(id);
       return;
     } on FireflyValidation catch (error) {
       await _markError(
         [
-          if (titleDirty)
+          ...creates,
+          if (titleDirty && titleMap != null)
             titleMap.copyWith(
               localVersionAt: Value(localGroup.dateTimeModified),
               syncedHash: Value(_titleHash(localGroup.title)),
@@ -1007,30 +1230,17 @@ class _TransactionCycle {
       return;
     }
     await db.transaction(() async {
-      if (titleDirty) {
-        await idMap.put(titleMap.copyWith(
-          remoteUpdatedAt: Value(response.updatedAt),
-          localVersionAt: Value(localGroup.dateTimeModified),
-          syncedHash: Value(_titleHash(localGroup.title)),
-          state: FireflySyncState.synced,
-          lastError: const Value(null),
-          attempts: 0,
-        ));
-      }
+      await _confirmCreates(creates, response);
+      if (titleDirty) await _markGroupWritten(response, localGroup);
       for (final item in submitted) {
-        final map = item.mapping!;
-        final latest = await idMap.byLocal(_transaction, map.localPk);
-        final row = await db.fireflyTransaction(map.localPk);
-        await idMap.put(map.copyWith(
-          remoteUpdatedAt: Value(response.updatedAt),
-          localVersionAt: Value(item.row.dateTimeModified),
-          syncedHash: Value(item.hash),
-          state: row == null || latest?.state == FireflySyncState.pendingDelete
-              ? FireflySyncState.pendingDelete
-              : FireflySyncState.synced,
-          lastError: const Value(null),
-          attempts: 0,
-        ));
+        await _markJournalWritten(
+          item.mapping!.copyWith(
+            localVersionAt: Value(item.row.dateTimeModified),
+            syncedHash: Value(item.hash),
+          ),
+          response,
+          item.mapping!.remoteSubId,
+        );
       }
     });
     context.pushedTransactionIds.add(response.id);
@@ -1089,6 +1299,7 @@ class _TransactionCycle {
     final destAccount = transfer ? await _remoteWallet(second.walletFk) : null;
     if (transfer && (destAccount == null || destWallet == null)) return null;
 
+    final wireKind = transfer ? _pairWireKind(wallet, destWallet!) : kind;
     final incoming = kind == FireflyTransactionType.deposit ||
         (kind != FireflyTransactionType.withdrawal &&
             !transfer &&
@@ -1120,12 +1331,10 @@ class _TransactionCycle {
         currency != destCurrency;
     final notes = row.note;
     final fields = <String, Object?>{
-      if (_kind(remote?.type) != kind) 'type': _wireKind(kind),
+      if (_kind(remote?.type) != wireKind) 'type': _wireKind(wireKind),
       'date': formatFireflyDateTime(row.dateCreated),
       'amount': formatFireflyAmount(first.amount, wallet.decimals),
       if (currency != null) 'currency_code': currency,
-      if (first.splitOrder != null && first.splitOrder != remote?.order)
-        'order': first.splitOrder,
       if (crossCurrency) ...{
         'foreign_currency_code': destCurrency,
         'foreign_amount':
@@ -1149,8 +1358,11 @@ class _TransactionCycle {
       ...entries.where((item) => item != preferred),
       preferred
     ]) {
-      for (final contributor in transactionContributors) {
-        await contributor.push(context, entry.row, fields);
+      for (final contributor in contributors) {
+        if (!await contributor.pushSplitWrite(context, entry.row, fields,
+            prior: remote)) {
+          return null;
+        }
       }
     }
     return fields;
@@ -1181,7 +1393,8 @@ class _TransactionCycle {
         continue;
       }
       if (!seen.add(map.remoteId)) continue;
-      final remote = await fetchGroup(map.remoteId);
+      final remote = await fetchGroup(map.remoteId,
+          preserveDirty: context.pushedTransactionIds.contains(map.remoteId));
       if (remote == null || cancelled) continue;
       final pending = (await idMap.forRemoteGroup(_transaction, map.remoteId))
           .where((item) => item.state == FireflySyncState.pendingDelete)
@@ -1211,15 +1424,20 @@ class _TransactionCycle {
                 recordConflict: false);
           });
         }
-        if (!cancelled) await fetchGroup(map.remoteId);
+        if (!cancelled) await fetchGroup(map.remoteId, preserveDirty: true);
       }
     }
   }
 
-  Future<String> _hash(Transaction row) async {
+  Future<String> _hash(
+    Transaction row, {
+    FireflyTransaction? group,
+    FireflyTransactionSplit? split,
+  }) async {
     final fields = <String, Object?>{};
-    for (final contributor in transactionContributors) {
-      await contributor.push(context, row, fields);
+    for (final contributor in contributors) {
+      await contributor.contributeHash(context, row, fields,
+          group: group, split: split);
     }
     return syncedFieldsHash({
       'name': row.name.trim(),
@@ -1289,6 +1507,27 @@ typedef _LocalRow = ({
 });
 
 String _titleHash(String? title) => syncedFieldsHash({'title': title});
+
+String? _referencePk(FireflyTransactionSplit split) {
+  const prefix = 'cashew:';
+  final reference = split.internalReference;
+  return reference != null && reference.startsWith(prefix)
+      ? reference.substring(prefix.length)
+      : null;
+}
+
+FireflyTransactionType _pairWireKind(
+    TransactionWallet from, TransactionWallet to) {
+  final fromLiability = from.accountKind == AccountKind.liability;
+  final toLiability = to.accountKind == AccountKind.liability;
+  if (fromLiability == toLiability) return FireflyTransactionType.transfer;
+  return fromLiability
+      ? FireflyTransactionType.deposit
+      : FireflyTransactionType.withdrawal;
+}
+
+bool _isLiabilityType(String? type) =>
+    const {'loan', 'debt', 'mortgage'}.contains(type?.toLowerCase());
 
 String _journal(FireflyTransactionSplit split) =>
     split.journalId ?? (throw const FireflyInvalidPayload());
