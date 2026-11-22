@@ -1,0 +1,93 @@
+name: Build
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Build mode
+        type: choice
+        options: [debug, release]
+        default: debug
+  workflow_call:
+    inputs:
+      mode:
+        type: string
+        default: release
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        required: false
+      ANDROID_KEYSTORE_PASSWORD:
+        required: false
+      ANDROID_KEY_ALIAS:
+        required: false
+      ANDROID_KEY_PASSWORD:
+        required: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  MODE: ${{ inputs.mode || 'debug' }}
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: android, os: ubuntu-latest, test: false }
+          - { target: ios, os: macos-14, test: false }
+          - { target: macos, os: macos-14, test: true }
+          - { target: linux, os: ubuntu-latest, test: true }
+          - { target: windows, os: windows-latest, test: true }
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - if: matrix.target == 'android'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - if: matrix.target == 'linux'
+        name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev libjsoncpp-dev libsqlite3-dev
+      - name: Install pinned Flutter
+        run: scripts/ci/install-flutter.sh
+      - run: flutter pub get --enforce-lockfile
+        working-directory: budget
+      - if: matrix.test
+        run: flutter test
+        working-directory: budget
+      - if: matrix.target == 'android' && env.MODE == 'release'
+        name: Configure Android signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: scripts/ci/android-signing.sh
+      - name: Build
+        working-directory: budget
+        run: |
+          case "${{ matrix.target }}" in
+            android)
+              flutter build apk "--$MODE"
+              if [[ "$MODE" == release ]]; then flutter build appbundle --release; fi ;;
+            ios) flutter build ios "--$MODE" --no-codesign ;;
+            *) flutter build "${{ matrix.target }}" "--$MODE" ;;
+          esac
+      - name: Package
+        run: scripts/ci/package.sh "${{ matrix.target }}" "$MODE"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cashew-${{ matrix.target }}-${{ env.MODE }}
+          path: dist/*
+          if-no-files-found: error
