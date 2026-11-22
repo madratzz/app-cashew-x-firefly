@@ -62,3 +62,10 @@ commits = [
   "57fb7514967714492c12170a85b75a01997ca91b",
   "8f6f941e40f53d65de745d91916d6de6ff9f5f29",
 ]
+
+# CocoaPods lockfiles hold only 40-hex pod checksums, which match generic-api-key
+[[allowlists]]
+condition = "AND"
+targetRules = ["generic-api-key"]
+paths = ['^budget/(ios|macos)/Podfile\.lock$']
+regexes = ['^[0-9a-f]{40}$']

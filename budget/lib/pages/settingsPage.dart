@@ -1,4 +1,3 @@
-import 'package:budget/firefly/firefly.dart';
 import 'package:budget/firefly/ui/slots.dart';
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart' hide AppSettings;
@@ -31,7 +30,6 @@ import 'package:budget/pages/editCategoriesPage.dart';
 import 'package:budget/pages/editWalletsPage.dart';
 import 'package:budget/pages/notificationsPage.dart';
 import 'package:budget/pages/subscriptionsPage.dart';
-import 'package:budget/widgets/accountAndBackup.dart';
 import 'package:budget/widgets/importDB.dart';
 import 'package:budget/widgets/navigationFramework.dart';
 import 'package:budget/widgets/notificationsSettings.dart';
@@ -58,7 +56,6 @@ import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:budget/firefly/ui/account/firefly_account_tile.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/platform/capabilities.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/framework/popupFramework.dart';
 import 'package:app_settings/app_settings.dart';
@@ -245,13 +242,6 @@ class MorePages extends StatelessWidget {
                           ),
                         )
                       : SizedBox.shrink(),
-              if (hasSideNavigation == false &&
-                  PlatformCapabilities.supportsGoogleSignIn &&
-                  !FireflyMode.enabled)
-                Expanded(
-                    child: GoogleAccountLoginButton(
-                  key: settingsGoogleAccountLoginButtonKey,
-                )),
             ],
           ),
           if (hasSideNavigation == false)
@@ -575,18 +565,6 @@ class SettingsPageContent extends StatelessWidget {
         //   icon: appStateSettings["outlinedIcons"] ? Icons.auto_fix_high_outlined : Icons.auto_fix_high_rounded,
         // ),
 
-        appStateSettings["emailScanning"] &&
-                PlatformCapabilities.supportsGoogleSignIn &&
-                !FireflyMode.enabled
-            ? SettingsContainerOpenPage(
-                openPage: AutoTransactionsPageEmail(),
-                title: "auto-email-transactions".tr(),
-                icon: appStateSettings["outlinedIcons"]
-                    ? Icons.mark_email_unread_outlined
-                    : Icons.mark_email_unread_rounded,
-              )
-            : SizedBox.shrink(),
-
         appStateSettings["notificationScanningDebug"] &&
                 getPlatform(ignoreEmulation: true) == PlatformOS.isAndroid
             ? SettingsContainerOpenPage(
@@ -626,14 +604,7 @@ class SettingsPageContent extends StatelessWidget {
 
         ImportDB(),
 
-        if (!PlatformCapabilities.supportsGoogleSignIn)
-          const FireflyAccountTile(),
-
-        if (PlatformCapabilities.googleDriveAvailable)
-          GoogleAccountLoginButton(
-            isOutlinedButton: false,
-            forceButtonName: "google-drive".tr(),
-          ),
+        const FireflyAccountTile(),
 
         const FireflySettingsEntry(),
 

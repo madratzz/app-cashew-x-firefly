@@ -1,17 +1,12 @@
 import 'package:budget/functions.dart';
-import 'package:budget/pages/addBudgetPage.dart';
 import 'package:budget/pages/homePage/homePageLineGraph.dart';
 import 'package:budget/pages/objectivesListPage.dart';
 import 'package:budget/pages/transactionFilters.dart';
 import 'package:budget/struct/databaseGlobal.dart';
-import 'package:budget/struct/firebaseAuthGlobal.dart';
 import 'package:budget/struct/settings.dart';
-import 'package:budget/struct/shareBudget.dart';
 import 'package:budget/struct/syncClient.dart';
-import 'package:budget/widgets/navigationFramework.dart';
 import 'package:budget/widgets/periodCyclePicker.dart';
 import 'package:budget/widgets/walletEntry.dart';
-import 'package:cloud_firestore/cloud_firestore.dart' hide Index;
 import 'dart:async';
 import 'package:async/async.dart';
 import 'package:drift/drift.dart';
@@ -3784,65 +3779,6 @@ class FinanceDatabase extends _$FinanceDatabase {
     // Restrict transaction details when added to long term loan
     transaction = cleanseTransactionForLongTermLoan(transaction);
 
-    // Update the servers entry of the transaction
-    if (transaction.paid && updateSharedEntry == true) {
-      if (transaction.sharedReferenceBudgetPk != null) {
-        Budget budget = await database
-            .getBudgetInstance(transaction.sharedReferenceBudgetPk!);
-        if (originalTransaction != null) {
-          if (originalTransaction.sharedReferenceBudgetPk !=
-              transaction.sharedReferenceBudgetPk) {
-            await deleteTransaction(transaction.transactionPk);
-            return await createOrUpdateTransaction(
-              insert: true,
-              transaction.copyWith(
-                transactionPk: "-1",
-                sharedKey: Value(null),
-                // transactionOwnerEmail: Value(null),
-                // transactionOriginalOwnerEmail: Value(null),
-                sharedDateUpdated: Value(null),
-                sharedStatus: Value(null),
-                // sharedReferenceBudgetPk: Value(null),
-              ),
-            );
-          }
-        }
-
-        if (transaction.sharedKey != null && budget.sharedKey != null) {
-          sendTransactionSet(transaction, budget);
-          transaction =
-              transaction.copyWith(sharedStatus: Value(SharedStatus.waiting));
-        } else if (transaction.sharedKey == null && budget.sharedKey != null) {
-          sendTransactionAdd(transaction, budget);
-          transaction =
-              transaction.copyWith(sharedStatus: Value(SharedStatus.waiting));
-        }
-      } else {
-        if (transaction.sharedStatus == null &&
-            originalTransaction != null &&
-            originalTransaction.sharedStatus == null) {
-        } else {
-          try {
-            print("REMOVING SHARED");
-            await deleteTransaction(transaction.transactionPk);
-          } catch (e) {
-            print(e.toString());
-          }
-          return await createOrUpdateTransaction(
-              insert: true,
-              transaction.copyWith(
-                transactionPk: "-1",
-                sharedKey: Value(null),
-                transactionOwnerEmail: Value(null),
-                transactionOriginalOwnerEmail: Value(null),
-                sharedDateUpdated: Value(null),
-                sharedStatus: Value(null),
-                sharedReferenceBudgetPk: Value(null),
-              ),
-              updateSharedEntry: false);
-        }
-      }
-    }
 
     transaction = transaction.copyWith(dateTimeModified: Value(DateTime.now()));
     TransactionsCompanion companionToInsert = transaction.toCompanion(true);
@@ -4331,8 +4267,6 @@ class FinanceDatabase extends _$FinanceDatabase {
     int result = await into(categories)
         .insert((companionToInsert), mode: InsertMode.insertOrReplace);
 
-    if (updateSharedEntry)
-      updateTransactionOnServerAfterChangingCategoryInformation(category);
     return result;
   }
 
@@ -4536,23 +4470,6 @@ class FinanceDatabase extends _$FinanceDatabase {
     budget = budget.copyWith(name: budget.name.trim());
     // print(budget);
 
-    if (budget.sharedKey != null && updateSharedEntry == true) {
-      FirebaseFirestore? db = await firebaseGetDBInstance();
-      if (db == null) {
-        return -1;
-      }
-      DocumentReference collectionRef =
-          db.collection('budgets').doc(budget.sharedKey);
-      collectionRef.update({
-        "name": budget.name,
-        "amount": budget.amount,
-        "colour": budget.colour,
-        "startDate": budget.startDate,
-        "endDate": budget.endDate,
-        "periodLength": budget.periodLength,
-        "reoccurrence": enumRecurrence[budget.reoccurrence],
-      });
-    }
 
     budget = budget.copyWith(dateTimeModified: Value(DateTime.now()));
     BudgetsCompanion companionToInsert = budget.toCompanion(true);
@@ -5123,15 +5040,6 @@ class FinanceDatabase extends _$FinanceDatabase {
 
   // delete budget given key
   Future<int> deleteBudget(context, Budget budget) async {
-    if (budget.sharedKey != null) {
-      loadingIndeterminateKey.currentState?.setVisibility(true);
-      if (budget.sharedOwnerMember == SharedOwnerMember.owner) {
-        bool result = await removedSharedFromBudget(budget);
-      } else {
-        bool result = await leaveSharedBudget(budget);
-      }
-      loadingIndeterminateKey.currentState?.setVisibility(false);
-    }
     if (budget.addedTransactionsOnly) {
       // Clear the budget the transactions are added to
       List<Transaction> transactionsAddedToThisBudget =
@@ -5183,17 +5091,6 @@ class FinanceDatabase extends _$FinanceDatabase {
       {bool updateSharedEntry = true}) async {
     if (updateSharedEntry == true && appStateSettings["sharedBudgets"] == false)
       updateSharedEntry = false;
-    // Send the delete log to the server
-    if (updateSharedEntry) {
-      Transaction transactionToDelete =
-          await database.getTransactionFromPk(transactionPk);
-      if (transactionToDelete.sharedKey != null &&
-          transactionToDelete.sharedReferenceBudgetPk != null) {
-        Budget budget = await database
-            .getBudgetInstance(transactionToDelete.sharedReferenceBudgetPk!);
-        sendTransactionDelete(transactionToDelete, budget);
-      }
-    }
     await createDeleteLog(DeleteLogType.Transaction, transactionPk);
     final int deleted = await (delete(transactions)
           ..where((t) => t.transactionPk.equals(transactionPk)))
@@ -5206,19 +5103,6 @@ class FinanceDatabase extends _$FinanceDatabase {
       {bool updateSharedEntry = true}) async {
     if (updateSharedEntry == true && appStateSettings["sharedBudgets"] == false)
       updateSharedEntry = false;
-    // Send the delete log to the server
-    for (String transactionPk in transactionPks) {
-      if (updateSharedEntry) {
-        Transaction transactionToDelete =
-            await database.getTransactionFromPk(transactionPk);
-        if (transactionToDelete.sharedKey != null &&
-            transactionToDelete.sharedReferenceBudgetPk != null) {
-          Budget budget = await database
-              .getBudgetInstance(transactionToDelete.sharedReferenceBudgetPk!);
-          sendTransactionDelete(transactionToDelete, budget);
-        }
-      }
-    }
 
     await createDeleteLogs(DeleteLogType.Transaction, transactionPks);
     final int deleted = await (delete(transactions)
