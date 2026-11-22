@@ -371,8 +371,10 @@ class _AttachmentCycle {
     await context.meta.remove(_rejectedKey(pk));
   }
 
+  // A data class upsert skips null columns, so a field the server cleared
+  // would stay set locally and the row would never be clean.
   Future<void> _write(Attachment row) =>
-      db.into(db.attachments).insertOnConflictUpdate(row);
+      db.into(db.attachments).insertOnConflictUpdate(row.toCompanion(false));
 
   Future<void> _synced(String pk, FireflyAttachment item, DateTime? localTime,
       {bool pendingDelete = false}) async {

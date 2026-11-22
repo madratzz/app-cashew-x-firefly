@@ -20,8 +20,8 @@ void main() {
         await db.fireflyCreatePayee(name: 'Employer', kind: PayeeKind.revenue);
       });
       final draft = FireflyTransactionDraft(db)..income = income;
-      await tester.pumpWidget(MaterialApp(
-          home: Scaffold(body: FireflyPayeePicker(draft: draft))));
+      await tester.pumpWidget(
+          MaterialApp(home: Scaffold(body: FireflyPayeePicker(draft: draft))));
       Future<void> settle() async {
         for (var i = 0; i < 5; i++) {
           await tester.runAsync(

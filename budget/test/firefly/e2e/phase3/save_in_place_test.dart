@@ -27,7 +27,8 @@ Future<void> _setMode(bool on) async {
 }
 
 Future<int> _rowId(FinanceDatabase db, String pk) async =>
-    (await db.customSelect('SELECT rowid FROM transactions '
+    (await db.customSelect(
+            'SELECT rowid FROM transactions '
             'WHERE transaction_pk = ?',
             variables: [Variable.withString(pk)]).getSingle())
         .read<int>('rowid');

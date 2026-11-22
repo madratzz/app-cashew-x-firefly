@@ -24,8 +24,8 @@ void main() {
     }
   });
 
-  Future<FireflyConflict> record(FireflyEntityType type, String pk,
-          Map<String, Object?> local) =>
+  Future<FireflyConflict> record(
+          FireflyEntityType type, String pk, Map<String, Object?> local) =>
       ConflictRepository(db).record(
           type: type,
           localPk: pk,
@@ -50,8 +50,7 @@ void main() {
         TransactionTagsCompanion.insert(transactionFk: 't', tagFk: 'a'));
     final snapshot = await db.fireflyTransactionSnapshot(row);
     expect(snapshot[fireflySnapshotTagPks], ['a']);
-    final conflict =
-        await record(FireflyEntityType.transaction, 't', snapshot);
+    final conflict = await record(FireflyEntityType.transaction, 't', snapshot);
 
     // The server version replaced the local tags and the group title.
     await db.delete(db.transactionTags).go();
