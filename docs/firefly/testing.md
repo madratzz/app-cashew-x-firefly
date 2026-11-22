@@ -89,10 +89,8 @@ FIREFLY_BASE_URL=$FIREFLY_E2E_URL FIREFLY_API_TOKEN=$FIREFLY_E2E_TOKEN \
 
 | Item | Status |
 |---|---|
-| Emulated Phase 1 E2E (acceptance 2–6) | Passing |
-| Emulated Phase 2 E2E (WP-29) | Passing |
-| Live Phase 2 E2E against Docker | **Pending**, same Docker blocker as Phase 1 |
-| Live Phase 1 E2E against Docker | **Pending.** No Docker on the development Mac. The Linux host that has Docker refused this user access to the socket (`permission denied ... /var/run/docker.sock`). Needs a user in the `docker` group or a CI job (WP-P2) |
-| A1–A7 live verification | **Pending**, same blocker. The fallbacks in `API-NOTES.md` stay in place until the probe runs |
-| `up.sh` token minting (A7) | Written, not yet run. If minting fails, create a token in the web UI of the disposable instance and export it by hand |
+| Emulated Phase 1, 2 and 3 E2E | Passing |
+| Live Phase 1, 2 and 3 E2E | Passing against a disposable Firefly III 6.6.2 (2026-11-22, WP-39): 6/6, 6/6 and 4/4 |
+| A1–A7 live verification | Recorded in `API-NOTES.md`. A6 is still open (the server answers 500), so its fallback stays |
+| `up.sh` token minting (A7) | Fixed for 6.6.2 with `mint.php`; not yet run through `up.sh` end to end on a Docker host |
 | Legacy flow with mode off (acceptance 7) | Covered by the existing hook tests and `seams_test.dart` at the database and settings level. A full UI run (onboarding, add transaction, backup export) on a device is still manual |
