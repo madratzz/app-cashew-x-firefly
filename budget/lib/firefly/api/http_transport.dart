@@ -61,8 +61,18 @@ class HttpFireflyTransport implements FireflyTransport {
 
   @override
   Future<JsonObject> post(String path, JsonObject body,
-          {FireflyQuery query = const {}}) async =>
-      _object((await _requestJson('POST', path, query, body: body))['data']);
+          {FireflyQuery query = const {}}) async {
+    final envelope = await _requestJson('POST', path, query, body: body);
+    final data = envelope['data'];
+    if (data is List<Object?>) {
+      return {
+        'data': data,
+        if (envelope.containsKey('meta')) 'meta': envelope['meta'],
+        if (envelope.containsKey('links')) 'links': envelope['links'],
+      };
+    }
+    return _object(data);
+  }
 
   @override
   Future<JsonObject> put(String path, JsonObject body,

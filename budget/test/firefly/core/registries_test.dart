@@ -70,7 +70,7 @@ void main() {
     for (final contributor in transactionContributors) {
       expect(ids.add(contributor.id), isTrue);
       expect(contributor.version,
-          const {'budget', 'piggyBank'}.contains(contributor.id) ? 1 : 0);
+          const {'budget', 'bill', 'piggyBank'}.contains(contributor.id) ? 1 : 0);
       await contributor.pull(
         context,
         const FireflyTransaction(id: '0'),
