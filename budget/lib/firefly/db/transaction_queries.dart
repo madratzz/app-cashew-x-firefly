@@ -17,10 +17,31 @@ extension FireflyTransactionQueries on FinanceDatabase {
           ..where((row) => row.pairedTransactionFk.isIn(keys)))
         .write(const TransactionsCompanion(pairedTransactionFk: Value(null)));
     await (delete(transactions)..where((row) => row.transactionPk.isIn(keys)))
-        .go();    await deleteOrphanTransactionTags();
+        .go();
+    await deleteOrphanTransactionTags();
   }
 
   Future<TransactionGroup?> fireflyTransactionGroup(String pk) =>
       (select(transactionGroups)..where((row) => row.groupPk.equals(pk)))
           .getSingleOrNull();
+
+  /// A conflict snapshot: the row plus its tag links and split group title, so
+  /// reapplying it restores a tag-only or group change too.
+  Future<Map<String, Object?>> fireflyTransactionSnapshot(
+      Transaction row) async {
+    final links = await (select(transactionTags)
+          ..where((link) => link.transactionFk.equals(row.transactionPk)))
+        .get();
+    final groupPk = row.splitGroupFk;
+    return {
+      ...row.toJson(),
+      fireflySnapshotTagPks: [for (final link in links) link.tagFk]..sort(),
+      if (groupPk != null)
+        fireflySnapshotGroupTitle:
+            (await fireflyTransactionGroup(groupPk))?.title,
+    };
+  }
 }
+
+const fireflySnapshotTagPks = 'tagPks';
+const fireflySnapshotGroupTitle = 'splitGroupTitle';

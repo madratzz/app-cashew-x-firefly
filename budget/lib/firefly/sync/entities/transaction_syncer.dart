@@ -802,7 +802,9 @@ class _TransactionCycle {
       type: _transaction,
       localPk: mapping.localPk,
       remoteId: mapping.remoteId,
-      local: local == null ? {'pendingDelete': true} : local.toJson(),
+      local: local == null
+          ? {'pendingDelete': true}
+          : await db.fireflyTransactionSnapshot(local),
       remote: remote,
       resolution: resolution,
       createdAt: context.now(),
