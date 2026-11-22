@@ -66,6 +66,7 @@ void main() {
       db.into(db.transactions).insertReturning(TransactionsCompanion.insert(
           name: name,
           amount: income ? 5 : -5,
+          paid: const Value(true),
           income: Value(income),
           categoryFk: fireflyUncategorizedCategoryPk,
           note: '',

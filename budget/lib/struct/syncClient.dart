@@ -4,9 +4,9 @@ import 'dart:convert';
 import 'package:budget/database/binary_string_conversion.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/firefly/api/firefly_api.dart';
-import 'package:budget/firefly/api/http_transport.dart';
 import 'package:budget/firefly/config/config.dart';
 import 'package:budget/firefly/firefly.dart';
+import 'package:budget/firefly/sync/bootstrap_upload.dart';
 import 'package:budget/firefly/sync/contracts.dart';
 import 'package:budget/firefly/sync/engine.dart';
 import 'package:budget/firefly/sync/scheduler.dart';
@@ -213,7 +213,7 @@ Future<SyncScheduler?> fireflySchedulerIfEnabled() async {
     _fireflySchedulerConfig = configKey;
     fireflyScheduler = SyncScheduler(SyncEngine(SyncContext(
       db: database,
-      api: FireflyApi(HttpFireflyTransport(
+      api: FireflyApi(FireflyPostUploadTransport(
         baseUrl: normalizeFireflyUrl(config.baseUrl),
         readToken: FireflyMode.tokens.read,
       )),
