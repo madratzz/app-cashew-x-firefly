@@ -2,6 +2,8 @@ name: Build
 
 on:
   pull_request:
+  push:
+    branches: [feature-platform-ci] # TEMP: proof run, remove before merge
   workflow_dispatch:
     inputs:
       mode:
@@ -32,7 +34,7 @@ defaults:
     shell: bash
 
 env:
-  MODE: ${{ inputs.mode || 'debug' }}
+  MODE: ${{ inputs.mode || (github.event_name == 'push' && 'release') || 'debug' }}
 
 jobs:
   build:
