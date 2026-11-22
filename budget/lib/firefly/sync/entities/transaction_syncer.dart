@@ -438,7 +438,7 @@ class _TransactionCycle {
       final isIncoming = role == _destination || incoming;
       final foreign = transfer &&
           to!.currency?.toUpperCase() != from!.currency?.toUpperCase();
-      final row = (local ??
+      var row = (local ??
               Transaction(
                 transactionPk: pk,
                 name: '',
@@ -469,6 +469,9 @@ class _TransactionCycle {
         splitOrder: Value(groupPk == null ? null : split.order),
         reconciled: split.reconciled ?? false,
       );
+      for (final contributor in transactionContributors) {
+        row = await contributor.projectRemote(context, group, split, row);
+      }
       updates.add((row: row, mapping: mapping, local: local, role: role));
     }
 
@@ -565,7 +568,9 @@ class _TransactionCycle {
       // First insert both rows without references so self-FKs work on import.
       if (decision == ConflictDecision.pushLocal) continue;
       await db.into(db.transactions).insertOnConflictUpdate(
-            entry.row.copyWith(pairedTransactionFk: const Value(null)),
+            entry.row
+                .copyWith(pairedTransactionFk: const Value(null))
+                .toCompanion(false),
           );
     }
     for (final entry in updates) {
