@@ -205,7 +205,10 @@ class Phase2Emulator extends FireflyEmulator {
         'start': formatFireflyDate(DateTime(now.year, now.month)),
         'end': formatFireflyDate(DateTime(now.year, now.month + 1, 0)),
         'amount': '$amount',
-        'currency_code': body['auto_budget_currency_code'] ?? 'USD',
+        // Without a budget currency Firefly uses its primary currency.
+        'currency_code': body['auto_budget_currency_code'] ??
+            ((await super.get('/currencies/primary'))['attributes']!
+                as JsonObject)['code'],
         'updated_at': _time,
       });
     }
