@@ -55,9 +55,9 @@ void definePhase3Suite(Future<E2eTarget?> Function(E2eClock clock) open,
         .setMockMethodCallHandler(
             const MethodChannel('plugins.flutter.io/path_provider'),
             (_) async => support.path);
-    if (live) snapshot = await E2eServerSnapshot.take(target!);
     device = E2eDevice(target!, clock);
     second = E2eDevice(target!, clock);
+    if (live) snapshot = await E2eServerSnapshot.take(target!);
     final admin = device.admin;
     checkingId = (await admin.accounts.create({
       'name': named('Checking'),

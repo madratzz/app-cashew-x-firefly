@@ -37,8 +37,8 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
   setUpAll(() async {
     target = await open(clock);
     if (target == null) return;
-    if (live) snapshot = await E2eServerSnapshot.take(target!);
     device = E2eDevice(target!, clock);
+    if (live) snapshot = await E2eServerSnapshot.take(target!);
     final existing = await device.admin.transactions.list(limit: 1);
     if (existing.total > 0) {
       throw StateError('The E2E server must start empty. Use a fresh '
