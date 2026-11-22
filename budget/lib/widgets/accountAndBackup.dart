@@ -4,6 +4,7 @@ import 'package:budget/colors.dart';
 import 'package:budget/database/generatePreviewData.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/firebase_options.dart';
+import 'package:budget/firefly/ui/account/firefly_account_tile.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/main.dart';
 import 'package:budget/pages/aboutPage.dart';
@@ -82,6 +83,7 @@ Future<bool> signInGoogle(
     bool? silentSignIn,
     Function()? next}) async {
   // bool isConnected = false;
+  if (!PlatformCapabilities.supportsGoogleSignIn) return false;
   if (silentSignIn == true && !PlatformCapabilities.googleDriveAvailable) {
     return false;
   }
@@ -241,6 +243,7 @@ Future<bool> signOutGoogle() async {
 }
 
 Future<bool> refreshGoogleSignIn() async {
+  if (!PlatformCapabilities.supportsGoogleSignIn) return false;
   await signOutGoogle();
   await signInGoogle(silentSignIn: kIsWeb ? false : true);
   return true;
@@ -678,6 +681,11 @@ class GoogleAccountLoginButtonState extends State<GoogleAccountLoginButton> {
 
   @override
   Widget build(BuildContext context) {
+    if (!PlatformCapabilities.supportsGoogleSignIn) {
+      // Drive backup has no replacement; the account slot is Firefly login
+      if (widget.forceButtonName != null) return const SizedBox.shrink();
+      return FireflyAccountTile(compact: widget.navigationSidebarButton);
+    }
     if (widget.navigationSidebarButton == true) {
       return AnimatedSwitcher(
         duration: Duration(milliseconds: 600),

@@ -154,7 +154,7 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
       await FireflyMode.init(() => const {}, tokenStore: TokenStore());
     });
-    expect(PlatformCapabilities.supportsFirebase, isTrue);
+    expect(PlatformCapabilities.supportsFirebase, isFalse);
     expect(PlatformCapabilities.supportsCamera, isTrue);
 
     final settings = <String, Object?>{FireflyConfig.pageSizeKey: 25};
@@ -162,7 +162,7 @@ void main() {
         tokenStore:
             TokenStore(storage: _UnavailableSecureStorage(), linux: false));
     expect(FireflyMode.enabled, isFalse);
-    expect(PlatformCapabilities.googleDriveAvailable, isTrue);
+    expect(PlatformCapabilities.googleDriveAvailable, isFalse);
 
     FlutterSecureStorage.setMockInitialValues({});
     final tokens = TokenStore();

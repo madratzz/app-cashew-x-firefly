@@ -1,0 +1,9 @@
+{
+  "firefly-account-connect": "Connect to Firefly III",
+  "firefly-account-connect-description": "Sign in with your server URL and a personal access token",
+  "firefly-account-email-loading": "Loading account...",
+  "firefly-account-email-unknown": "Account details unavailable offline",
+  "firefly-account-disconnect": "Disconnect",
+  "firefly-account-disconnect-description": "Deletes the token from this device. Your local data is kept.",
+  "firefly-account-disconnected": "Disconnected from Firefly III"
+}

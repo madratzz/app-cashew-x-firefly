@@ -19,11 +19,13 @@ class PlatformCapabilities {
   static bool get isMobile => isAndroid || isIOS;
   static bool get isDesktop => isMacOS || isLinux || isWindows;
 
-  /// Google sign-in, Drive backup and Gmail import.
-  static bool get supportsGoogleSignIn => isMobile || kIsWeb;
+  /// Google sign-in, Drive backup and Gmail import. Off on every platform:
+  /// Firefly III login replaces Google sign-in (WP-42).
+  static bool get supportsGoogleSignIn => false;
 
-  /// Firebase auth and Firestore (shared budgets).
-  static bool get supportsFirebase => isMobile || kIsWeb;
+  /// Firebase auth and Firestore (shared budgets). Off with Google sign-in
+  /// (WP-42).
+  static bool get supportsFirebase => false;
 
   /// Scheduled notifications. `flutter_local_notifications` 17.x has no
   /// Windows implementation and cannot schedule on Linux.

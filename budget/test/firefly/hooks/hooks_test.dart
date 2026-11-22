@@ -76,7 +76,7 @@ void main() {
     expect(FireflyMode.enabled, isFalse);
     expect(find.byType(FireflySettingsEntry), findsOneWidget);
     expect(find.byType(FireflyHubSection), findsOneWidget);
-    expect(find.byType(GoogleAccountLoginButton), findsOneWidget);
+    expect(find.byType(GoogleAccountLoginButton), findsNothing);
     expect(network.clients, 0);
     await _unmount(tester);
   });
