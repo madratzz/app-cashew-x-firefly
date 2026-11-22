@@ -61,8 +61,9 @@ class HttpFireflyTransport implements FireflyTransport {
 
   @override
   Future<JsonObject> post(String path, JsonObject body,
-          {FireflyQuery query = const {}}) async {
-    final envelope = await _requestJson('POST', path, query, body: body);
+      {FireflyQuery query = const {}, bool retry = true}) async {
+    final envelope =
+        await _requestJson('POST', path, query, body: body, retry: retry);
     final data = envelope['data'];
     if (data is List<Object?>) {
       return {
@@ -154,13 +155,13 @@ class HttpFireflyTransport implements FireflyTransport {
 
   Future<JsonObject> _requestJson(
       String method, String path, FireflyQuery query,
-      {JsonObject? body}) async {
+      {JsonObject? body, bool retry = true}) async {
     final uri = _uri(path, query);
     final isGet = method == 'GET';
     final bytes = body == null ? null : utf8.encode(jsonEncode(body));
     if (isGet) await _acquireGet();
     try {
-      return await _retry(() {
+      Future<JsonObject> attempt() {
         final request = http.Request(method, uri);
         if (bytes != null) {
           request.headers['Content-Type'] = _json;
@@ -172,7 +173,9 @@ class HttpFireflyTransport implements FireflyTransport {
           }
           return _object(_decode(await response.stream.toBytes()));
         });
-      });
+      }
+
+      return await (retry ? _retry(attempt) : attempt());
     } finally {
       if (isGet) _releaseGet();
     }

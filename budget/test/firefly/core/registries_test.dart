@@ -123,6 +123,13 @@ void main() {
     );
     transport.requests.removeWhere((request) =>
         request.path == '/budgets' || request.path == '/available-budgets');
+    expect(
+      transport.requests
+          .where((request) => request.path == '/attachments')
+          .map((request) => request.method),
+      ['GET'],
+    );
+    transport.requests.removeWhere((request) => request.path == '/attachments');
     expect(transport.requests, isEmpty);
   });
 }
