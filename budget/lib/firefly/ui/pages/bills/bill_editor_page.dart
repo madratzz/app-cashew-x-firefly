@@ -3,6 +3,7 @@ import 'package:budget/firefly/api/models/bill.dart';
 import 'package:budget/firefly/api/transport.dart';
 import 'package:budget/firefly/db/bill_recurrence_queries.dart';
 import 'package:budget/firefly/ui/pages/bills/common.dart';
+import 'package:budget/firefly/ui/pages/links/object_group_label.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
@@ -133,6 +134,8 @@ class _FireflyBillEditorPageState extends State<FireflyBillEditorPage> {
         padding: const EdgeInsets.all(16),
         children: [
           if (_error != null) FireflyErrorBanner(_error!),
+          if (widget.bill case final bill?)
+            FireflyObjectGroupLabel(attributes: bill.attributes),
           TextField(
             key: const ValueKey('firefly-bill-name'),
             controller: _name,

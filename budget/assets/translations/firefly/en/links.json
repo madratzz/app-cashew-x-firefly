@@ -1,0 +1,23 @@
+{
+  "firefly-links-title": "Transaction links",
+  "firefly-links-entry-description": "View and link Firefly transactions",
+  "firefly-links-add": "Create transaction link",
+  "firefly-links-add-unavailable": "Linking requires two synced transactions and a link type.",
+  "firefly-links-delete-title": "Remove this transaction link?",
+  "firefly-links-delete": "Remove link",
+  "firefly-links-refresh": "Refresh links",
+  "firefly-links-load-failed": "Could not read saved transaction links.",
+  "firefly-links-request-failed": "Firefly could not complete the link request.",
+  "firefly-links-offline": "Showing saved links. Connect to Firefly to make changes.",
+  "firefly-links-empty": "No transaction links",
+  "firefly-links-journal": "Journal {id}",
+  "firefly-links-related-to": "is linked to",
+  "firefly-links-inward": "First transaction",
+  "firefly-links-outward": "Second transaction",
+  "firefly-links-type": "Relationship",
+  "firefly-links-notes": "Notes",
+  "firefly-links-search": "Search synced transactions",
+  "firefly-links-cancel": "Cancel",
+  "firefly-links-save": "Create link",
+  "firefly-object-group-label": "Object group: {title}"
+}
