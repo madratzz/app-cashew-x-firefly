@@ -1,0 +1,17 @@
+{
+  "firefly-attachments-title": "Attachments",
+  "firefly-attachments-add": "Add attachment",
+  "firefly-attachments-empty": "No attachments",
+  "firefly-attachments-open": "Open",
+  "firefly-attachments-rename": "Rename",
+  "firefly-attachments-remove": "Remove",
+  "firefly-attachments-delete-confirm": "Delete this attachment from the server on the next sync?",
+  "firefly-attachments-name": "Name",
+  "firefly-attachments-queued": "Waiting to upload",
+  "firefly-attachments-count": "{count} attachments",
+  "firefly-attachments-error-size": "Files must be smaller than 10 MB",
+  "firefly-attachments-error-integrity": "The file does not match the server copy",
+  "firefly-attachments-error-unavailable": "The file is not available. Sync and try again",
+  "firefly-attachments-error-name": "Enter a name of up to 255 characters",
+  "firefly-attachments-error-open": "No app can open this file"
+}
