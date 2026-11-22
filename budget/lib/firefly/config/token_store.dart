@@ -4,11 +4,17 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class TokenStore {
   TokenStore({FlutterSecureStorage? storage, bool? linux})
-      : _storage = storage ?? const FlutterSecureStorage(),
+      : _storage = storage ?? defaultStorage,
         _linux =
             linux ?? (!kIsWeb && defaultTargetPlatform == TargetPlatform.linux);
 
   static const key = 'firefly.pat';
+
+  /// The macOS data protection keychain needs keychain-access-groups, which an
+  /// ad-hoc signed build cannot carry, so macOS uses the login keychain.
+  static const defaultStorage = FlutterSecureStorage(
+    mOptions: MacOsOptions(useDataProtectionKeyChain: false),
+  );
   final FlutterSecureStorage _storage;
   final bool _linux;
   bool _sessionOnly = false;

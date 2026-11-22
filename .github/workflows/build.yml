@@ -1,0 +1,133 @@
+name: Build
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Build mode
+        type: choice
+        options: [debug, release]
+        default: debug
+  workflow_call:
+    inputs:
+      mode:
+        type: string
+        default: release
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        required: false
+      ANDROID_KEYSTORE_PASSWORD:
+        required: false
+      ANDROID_KEY_ALIAS:
+        required: false
+      ANDROID_KEY_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  MODE: ${{ inputs.mode || 'debug' }}
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: android, os: ubuntu-latest, test: false }
+          - { target: ios, os: macos-15, test: false }
+          - { target: macos, os: macos-15, test: true }
+          - { target: linux, os: ubuntu-latest, test: true }
+          - { target: windows, os: windows-2022, test: true }
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - if: matrix.target == 'android'
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - if: matrix.target == 'linux'
+        name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev libjsoncpp-dev libsqlite3-dev xvfb
+      - if: matrix.target == 'windows'
+        name: Install SQLite for host tests
+        run: scripts/ci/windows-sqlite.sh
+      - if: matrix.target == 'windows'
+        name: Select MSVC 14.38 toolset
+        run: scripts/ci/windows-msvc.sh
+      - name: Install pinned Flutter
+        run: scripts/ci/install-flutter.sh
+      - run: flutter pub get --enforce-lockfile
+        working-directory: budget
+      - if: matrix.test
+        run: flutter test --concurrency=2 --reporter expanded
+        working-directory: budget
+      - if: matrix.target == 'android' && env.MODE == 'release'
+        name: Configure Android signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: scripts/ci/android-signing.sh
+      - if: matrix.target == 'macos'
+        name: Drop Team-ID-only entitlements for ad-hoc signing
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: scripts/ci/macos-entitlements.sh
+      - name: Build
+        working-directory: budget
+        run: |
+          case "${{ matrix.target }}" in
+            android)
+              flutter build apk "--$MODE"
+              if [[ "$MODE" == release ]]; then flutter build appbundle --release; fi ;;
+            ios) flutter build ios "--$MODE" --no-codesign ;;
+            *) flutter build "${{ matrix.target }}" "--$MODE" ;;
+          esac
+      - if: matrix.target == 'macos'
+        name: Launch smoke test
+        run: scripts/ci/macos-smoke.sh "$MODE"
+      - if: matrix.target == 'linux'
+        name: Launch smoke test (Xvfb)
+        run: scripts/ci/linux-smoke.sh "$MODE"
+      - name: Package
+        run: scripts/ci/package.sh "${{ matrix.target }}" "$MODE"
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: cashew-${{ matrix.target }}-${{ env.MODE }}
+          path: dist/*
+          if-no-files-found: error
+
+  keychain-smoke:
+    name: keychain-${{ matrix.target }}
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [macos, ios]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - if: matrix.target == 'macos'
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: scripts/ci/macos-entitlements.sh
+      - name: Install pinned Flutter
+        run: scripts/ci/install-flutter.sh
+      - run: flutter pub get --enforce-lockfile
+        working-directory: budget
+      - name: TokenStore keychain round trip
+        timeout-minutes: 90
+        run: scripts/ci/keychain-smoke.sh "${{ matrix.target }}"
