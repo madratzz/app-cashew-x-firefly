@@ -1,0 +1,35 @@
+# Disposable Firefly III 6.6.2 for the E2E suite. Throwaway data only.
+# Start with docker/firefly/up.sh; never point this at real data.
+services:
+  db:
+    image: mariadb:11.4
+    environment:
+      MARIADB_DATABASE: firefly
+      MARIADB_USER: firefly
+      MARIADB_PASSWORD: ${FIREFLY_E2E_DB_PASSWORD:?set by up.sh}
+      MARIADB_RANDOM_ROOT_PASSWORD: "yes"
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      retries: 30
+  app:
+    image: fireflyiii/core:version-6.6.2
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_KEY: ${FIREFLY_E2E_APP_KEY:?set by up.sh}
+      APP_ENV: local
+      APP_URL: http://127.0.0.1:${FIREFLY_E2E_PORT:-8089}
+      TRUSTED_PROXIES: "**"
+      TZ: UTC
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: firefly
+      DB_USERNAME: firefly
+      DB_PASSWORD: ${FIREFLY_E2E_DB_PASSWORD:?set by up.sh}
+    ports:
+      - "127.0.0.1:${FIREFLY_E2E_PORT:-8089}:8080"

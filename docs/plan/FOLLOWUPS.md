@@ -2,12 +2,12 @@
 
 Cross-package seams that wave-1 packages could not close because the other side merges in parallel.
 
-- main.dart: replace FlutterTimezone.getLocalTimezone() with localTimezoneName() from package:budget/platform/timezone.dart (WP-P1); keep the tz.getLocation fallback to America/New_York.
-- Wallet deletes in Firefly mode: route the remaining legacy delete paths to FireflyWalletQueries.deleteWalletLocally(walletPk) (WP-10). The primary-wallet "0" delete/merge stays disabled in Firefly mode.
-- Localize the display name of the reserved local category "firefly-uncategorized" (persisted as "Uncategorized").
-- Re-enable budget/integration_test in gate G3 once this package creates it.
-- Verify WP-03 API-NOTES assumptions A1-A7 live against the disposable dockerised Firefly 6.6.2 (orion-nexus has Docker) and remove the fallbacks that turn out unnecessary.
-- conflicts_page.dart:129: subtitle shows raw enum names; show localized labels.
+- [ ] main.dart: replace FlutterTimezone.getLocalTimezone() with localTimezoneName() from package:budget/platform/timezone.dart (WP-P1); keep the tz.getLocation fallback to America/New_York. **Blocked:** WP-P1 (`feature-platform-desktop`) is not merged into `firefly-sync`, so `lib/platform/timezone.dart` does not exist on the base yet. Do this when WP-P1 merges.
+- [x] Wallet deletes in Firefly mode: route the remaining legacy delete paths to FireflyWalletQueries.deleteWalletLocally(walletPk) (WP-10). The primary-wallet "0" delete/merge stays disabled in Firefly mode. Done: `FinanceDatabase.deleteWallet` routes to `deleteWalletLocally` in Firefly mode and ignores wallet "0"; this covers the delete and merge paths in `editWalletsPage.dart`. Test: `test/firefly/e2e/seams_test.dart`.
+- [x] Localize the display name of the reserved local category "firefly-uncategorized" (persisted as "Uncategorized"). Done: `fireflyUncategorizedName()` uses `firefly-category-uncategorized` (`assets/translations/firefly/en/integration.json`), with "Uncategorized" when no locale is loaded. The row is renamed when the language changes; it never syncs.
+- [x] Re-enable budget/integration_test in gate G3 once this package creates it. Done: `budget/integration_test/` exists, so CI G3 now analyses it.
+- [ ] Verify WP-03 API-NOTES assumptions A1-A7 live against the disposable dockerised Firefly 6.6.2 (orion-nexus has Docker) and remove the fallbacks that turn out unnecessary. **Pending:** no Docker access (see `docs/firefly/testing.md`). The fallbacks stay until the live probe runs.
+- [x] conflicts_page.dart:129: subtitle shows raw enum names; show localized labels. Done: `fireflyEntityLabel` and `fireflyResolutionLabel`.
 
 ## Pending owner-run checks (for WP-49 final integration)
 Owner chose to merge without these; run them once the machines allow it.

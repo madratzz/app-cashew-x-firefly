@@ -1,9 +1,17 @@
 import 'package:budget/database/tables.dart';
 import 'package:budget/struct/iconObjects.dart';
 import 'package:drift/drift.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:uuid/uuid.dart';
 
 const fireflyUncategorizedCategoryPk = 'firefly-uncategorized';
+
+/// Display name of the reserved category; English when no locale is loaded.
+String fireflyUncategorizedName() {
+  const key = 'firefly-category-uncategorized';
+  final label = key.tr();
+  return label == key ? 'Uncategorized' : label;
+}
 
 bool isFireflySyncableCategory(String pk) =>
     pk != '0' && pk != fireflyUncategorizedCategoryPk;
@@ -26,11 +34,17 @@ extension FireflyCategoryQueries on FinanceDatabase {
 
   Future<String> ensureUncategorizedCategory() async {
     const pk = fireflyUncategorizedCategoryPk;
-    if (await fireflyCategory(pk) == null) {
+    final name = fireflyUncategorizedName();
+    final existing = await fireflyCategory(pk);
+    if (existing != null && existing.name != name) {
+      // Local-only row, so the name follows the app language without syncing.
+      await (update(categories)..where((row) => row.categoryPk.equals(pk)))
+          .write(CategoriesCompanion(name: Value(name)));
+    } else if (existing == null) {
       await into(categories).insert(
         CategoriesCompanion.insert(
           categoryPk: const Value(pk),
-          name: 'Uncategorized',
+          name: name,
           iconName: const Value('image.png'),
           order: await _nextCategoryOrder(null),
         ),

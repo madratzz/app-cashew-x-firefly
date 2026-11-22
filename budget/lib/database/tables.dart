@@ -22,6 +22,8 @@ import 'package:flutter/foundation.dart';
 import 'schema_versions.dart';
 import 'package:flutter/material.dart' show DateTimeRange;
 import 'package:budget/pages/activityPage.dart';
+import 'package:budget/firefly/firefly.dart';
+import 'package:budget/firefly/db/wallet_queries.dart';
 
 import 'package:flutter/material.dart' show RangeValues;
 part 'tables.g.dart';
@@ -5324,6 +5326,12 @@ class FinanceDatabase extends _$FinanceDatabase {
 
   //delete wallet given key
   Future deleteWallet(String walletPk, int order) async {
+    if (FireflyMode.enabled) {
+      // Wallet "0" maps to the primary Firefly account and is never deleted.
+      if (walletPk == "0") return;
+      await deleteWalletLocally(walletPk);
+      return;
+    }
     TransactionWallet? newPrimaryCandidate;
 
     if (walletPk == "0") {

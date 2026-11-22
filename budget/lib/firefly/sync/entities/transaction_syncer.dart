@@ -619,7 +619,12 @@ class _TransactionCycle {
     final localHash = local == null ? null : await _hash(local);
     final rejected = mapping.state == FireflySyncState.error;
     final sameRemoteVersion = _secondOrNull(incomingAt) == previousAt;
+    // A local delete of a related row (for example its category) changes the
+    // locally mapped hash without a server edit. Same version means no edit.
+    final deletingUnchanged =
+        mapping.state == FireflySyncState.pendingDelete && sameRemoteVersion;
     final changed = !(rejected && sameRemoteVersion) &&
+        !deletingUnchanged &&
         (incoming != mapping.syncedHash ||
             (_secondOrNull(incomingAt) != previousAt &&
                 transactionContributors
