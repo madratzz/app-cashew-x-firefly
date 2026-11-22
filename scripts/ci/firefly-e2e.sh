@@ -10,7 +10,21 @@
 set -euo pipefail
 target="${1:-host}"
 root="$(cd "$(dirname "$0")/../.." && pwd)"
-trap '"$root/docker/firefly/down.sh" >/dev/null 2>&1 || true' EXIT
+server_errors() {
+  # Exception lines only; Firefly does not log request headers.
+  docker compose -p cashew-firefly-e2e exec -T app sh -c \
+    'cat storage/logs/*.log 2>/dev/null' | grep -E 'ERROR|Exception|200000|200002|200003' | cut -c1-400 | tail -40 || true
+}
+cleanup() {
+  status=$?
+  if [[ $status -ne 0 ]]; then
+    echo "::group::Firefly server errors"
+    server_errors
+    echo "::endgroup::"
+  fi
+  "$root/docker/firefly/down.sh" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
 exports="$("$root/docker/firefly/up.sh")"
 token="$(sed -n 's/^export FIREFLY_E2E_TOKEN=//p' <<<"$exports")"
 echo "::add-mask::$token"
