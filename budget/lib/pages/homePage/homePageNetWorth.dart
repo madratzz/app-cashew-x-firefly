@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
+import 'package:budget/firefly/db/liability_queries.dart';
+import 'package:budget/firefly/firefly.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/homePage/homePageWalletSwitcher.dart';
@@ -77,15 +81,17 @@ class HomePageNetWorth extends StatelessWidget {
                         currencyKey: Provider.of<AllWallets>(context)
                             .indexedByPk[appStateSettings["selectedWalletPk"]]
                             ?.currency,
-                        totalWithCountStream:
-                            database.watchTotalWithCountOfWallet(
-                          isIncome: null,
-                          allWallets: Provider.of<AllWallets>(context),
-                          followCustomPeriodCycle: true,
-                          cycleSettingsExtension: "NetWorth",
-                          searchFilters:
-                              SearchFilters(walletPks: walletPks ?? []),
-                        ),
+                        totalWithCountStream: FireflyMode.enabled
+                            ? fireflyNetWorthTotal(
+                                Provider.of<AllWallets>(context), walletPks)
+                            : database.watchTotalWithCountOfWallet(
+                                isIncome: null,
+                                allWallets: Provider.of<AllWallets>(context),
+                                followCustomPeriodCycle: true,
+                                cycleSettingsExtension: "NetWorth",
+                                searchFilters:
+                                    SearchFilters(walletPks: walletPks ?? []),
+                              ),
                         // getTextColor: (amount) => amount == 0
                         //     ? getColor(context, "black")
                         //     : amount > 0
@@ -111,6 +117,48 @@ class HomePageNetWorth extends StatelessWidget {
           }),
     );
   }
+}
+
+/// Net worth limited to wallets Firefly includes, intersected with the
+/// user's selection ([selected] null means all). An empty eligible set is
+/// zero: an empty wallet filter would otherwise mean every wallet.
+Stream<TotalWithCount?> fireflyNetWorthTotal(
+    AllWallets allWallets, List<String>? selected,
+    {FinanceDatabase? db}) {
+  final source = db ?? database;
+  late final StreamController<TotalWithCount?> controller;
+  StreamSubscription<List<String>>? outer;
+  StreamSubscription<TotalWithCount?>? inner;
+  controller = StreamController<TotalWithCount?>(
+    onListen: () {
+      // Switch to the latest eligibility; drift watch streams never end.
+      outer = source.watchFireflyNetWorthWalletPks().listen((eligible) {
+        final pks = selected == null
+            ? eligible
+            : selected.where((pk) => eligible.contains(pk)).toList();
+        inner?.cancel();
+        inner = null;
+        if (pks.isEmpty) {
+          controller.add(TotalWithCount(total: 0, count: 0));
+          return;
+        }
+        inner = source
+            .watchTotalWithCountOfWallet(
+              isIncome: null,
+              allWallets: allWallets,
+              followCustomPeriodCycle: true,
+              cycleSettingsExtension: "NetWorth",
+              searchFilters: SearchFilters(walletPks: pks),
+            )
+            .listen(controller.add, onError: controller.addError);
+      }, onError: controller.addError);
+    },
+    onCancel: () async {
+      await inner?.cancel();
+      await outer?.cancel();
+    },
+  );
+  return controller.stream;
 }
 
 class WalletPickerPeriodCycle extends StatefulWidget {

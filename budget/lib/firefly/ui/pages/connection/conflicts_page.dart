@@ -2,8 +2,10 @@ import 'dart:convert';
 
 import 'package:budget/database/tables.dart';
 import 'package:budget/firefly/db/conflict_repository.dart';
+import 'package:budget/firefly/db/liability_queries.dart';
 import 'package:budget/firefly/ui/pages/connection/connection_page.dart';
 import 'package:budget/firefly/ui/settings/connection_controller.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
@@ -25,9 +27,20 @@ Future<bool> reapplyFireflyConflict(
     switch (conflict.entityType) {
       case FireflyEntityType.walletAccount:
       case FireflyEntityType.liabilityAccount:
-        await db
-            .into(db.wallets)
-            .insertOnConflictUpdate(TransactionWallet.fromJson(json));
+        final details = json.remove('accountDetails');
+        await db.transaction(() async {
+          await db
+              .into(db.wallets)
+              .insertOnConflictUpdate(TransactionWallet.fromJson(json));
+          if (details is Map<String, Object?>) {
+            await db.saveFireflyAccountDetails(
+                conflict.localPk,
+                AccountDetail.fromJson(details)
+                    .toCompanion(false)
+                    .copyWith(walletFk: const Value.absent()),
+                modifiedAt: now());
+          }
+        });
       case FireflyEntityType.category:
         await db
             .into(db.categories)
