@@ -48,7 +48,7 @@ jobs:
           - { target: ios, os: macos-15, test: false }
           - { target: macos, os: macos-15, test: true }
           - { target: linux, os: ubuntu-latest, test: true }
-          - { target: windows, os: windows-latest, test: true }
+          - { target: windows, os: windows-2022, test: true }
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - if: matrix.target == 'android'

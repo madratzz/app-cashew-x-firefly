@@ -2,7 +2,7 @@
 
 ## Workflows
 
-- `.github/workflows/build.yml` runs on every pull request and on manual dispatch. It builds Android (Ubuntu), iOS (`macos-15`, `--no-codesign`), macOS (`macos-15`), Linux (Ubuntu with GTK, libsecret, ninja, clang, cmake) and Windows (`windows-latest`), and runs `flutter test` on the macOS, Linux and Windows jobs. Pull requests build in debug mode; a manual dispatch can choose `release`.
+- `.github/workflows/build.yml` runs on every pull request and on manual dispatch. It builds Android (Ubuntu), iOS (`macos-15`, `--no-codesign`), macOS (`macos-15`), Linux (Ubuntu with GTK, libsecret, ninja, clang, cmake) and Windows (`windows-2022`; Flutter 3.19 only knows Visual Studio up to 2022), and runs `flutter test` on the macOS, Linux and Windows jobs. Pull requests build in debug mode; a manual dispatch can choose `release`.
 - `.github/workflows/release.yml` runs on tags `v*`. It calls `build.yml` in release mode and attaches one artifact set per target to a new GitHub release:
   - `cashew-android-release.apk` and `cashew-android-release.aab`
   - `cashew-ios-release-unsigned.ipa` (unsigned `Payload/Runner.app`)
