@@ -1,0 +1,18 @@
+{
+  "firefly-tags-title": "Tags",
+  "firefly-tags-description": "Create, rename and delete the tags on your Firefly III server",
+  "firefly-tags-empty": "No tags yet",
+  "firefly-tags-add": "Add tag",
+  "firefly-tags-new": "New tag",
+  "firefly-tags-edit": "Edit tag",
+  "firefly-tags-name": "Name",
+  "firefly-tags-description-field": "Description",
+  "firefly-tags-name-required": "Enter a name",
+  "firefly-tags-name-taken": "A tag with this name already exists",
+  "firefly-tags-save": "Save",
+  "firefly-tags-cancel": "Cancel",
+  "firefly-tags-delete": "Delete tag",
+  "firefly-tags-delete-confirm": "Delete this tag? It is removed from every transaction",
+  "firefly-tags-search": "Search or create a tag",
+  "firefly-tags-create-named": "Create tag \"{}\""
+}
