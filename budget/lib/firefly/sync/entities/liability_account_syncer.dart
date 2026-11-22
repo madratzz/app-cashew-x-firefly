@@ -247,6 +247,7 @@ class _LiabilityAccounts extends CollectionAdapter<FireflyAccount> {
       throw const FireflyInvalidPayload();
     }
     return RemoteCollectionRow(
+      serverOwned: fireflyAccountServerOwned,
       id: account.id,
       value: account,
       updatedAt: account.updatedAt,

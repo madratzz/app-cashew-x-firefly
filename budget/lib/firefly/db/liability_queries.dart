@@ -244,6 +244,11 @@ DateTime? fireflyAccountLocalVersion(
 }
 
 /// Writable Firefly fields form the same canonical map on both sides.
+/// Account fields Firefly rewrites by itself: it renumbers `order` when
+/// accounts or their transactions change, advancing `updated_at` without a
+/// client edit. Such a rewrite must not win over a local edit or delete.
+const fireflyAccountServerOwned = {'order'};
+
 JsonObject fireflyAccountDetailFields(
   AccountDetail? details, {
   required bool liability,

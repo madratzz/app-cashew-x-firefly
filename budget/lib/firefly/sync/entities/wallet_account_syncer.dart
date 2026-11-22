@@ -351,6 +351,7 @@ class _WalletAccounts extends CollectionAdapter<FireflyAccount> {
     }
 
     return RemoteCollectionRow(
+      serverOwned: fireflyAccountServerOwned,
       id: account.id,
       value: account,
       updatedAt: account.updatedAt,

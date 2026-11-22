@@ -31,6 +31,7 @@ class RemoteCollectionRow<T> {
     required this.fields,
     this.updatedAt,
     this.snapshot,
+    this.serverOwned = const {},
   });
 
   final String id;
@@ -38,7 +39,18 @@ class RemoteCollectionRow<T> {
   final T value;
   final JsonObject fields;
   final JsonObject? snapshot;
+
+  /// Fields the server rewrites by itself, such as a renumbered account
+  /// order. A change limited to them is applied to a clean local row but
+  /// never wins over a local edit or delete.
+  final Set<String> serverOwned;
   String get hash => syncedFieldsHash(fields);
+
+  /// The hash without [serverOwned] fields.
+  String get stableHash => syncedFieldsHash({
+        for (final entry in fields.entries)
+          if (!serverOwned.contains(entry.key)) entry.key: entry.value,
+      });
 }
 
 /// Adapter for a collection with one local row per Firefly resource.
@@ -105,6 +117,7 @@ class CollectionSync<T> {
   /// the row (for example a reassigned account order), so it differs from
   /// `syncedHash`, which is the local hash.
   String _remoteHashKey(String pk) => 'remoteHash.${_type.name}.$pk';
+  String _stableHashKey(String pk) => 'remoteStableHash.${_type.name}.$pk';
   FireflyEntityType get _type => adapter.type;
 
   Future<CollectionPullResult> pull() async {
@@ -191,9 +204,18 @@ class CollectionSync<T> {
             (adapter.compareHashWhenTimestampsEqual &&
                 updatedAt.isAtSameMomentAs(previous) &&
                 remote.hash != seen);
+    final localVersion = _localVersion(mapping, local);
+    // A server-side rewrite of server-owned fields must not override a local
+    // edit or delete.
+    final serverOnly = changed &&
+        localVersion != LocalSyncVersion.clean &&
+        remote.serverOwned.isNotEmpty &&
+        await _meta.read(_stableHashKey(mapping.localPk)) == remote.stableHash;
     final decision = resolveConflict(
-      local: _localVersion(mapping, local),
-      remote: changed ? RemoteSyncVersion.changed : RemoteSyncVersion.unchanged,
+      local: localVersion,
+      remote: changed && !serverOnly
+          ? RemoteSyncVersion.changed
+          : RemoteSyncVersion.unchanged,
       sameHash: local?.hash == remote.hash,
     );
     switch (decision) {
@@ -265,6 +287,9 @@ class CollectionSync<T> {
     } else {
       await _meta.write(_remoteHashKey(local.pk), remote.hash);
     }
+    if (remote.serverOwned.isNotEmpty) {
+      await _meta.write(_stableHashKey(local.pk), remote.stableHash);
+    }
     if (mapping?.state == FireflySyncState.error ||
         await _meta.read(_rejectedHashKey(local.pk)) != null) {
       await _meta.remove(_rejectedHashKey(local.pk));
@@ -303,6 +328,7 @@ class CollectionSync<T> {
     await idMap.remove(_type, pk);
     await _meta.remove(_rejectedHashKey(pk));
     await _meta.remove(_remoteHashKey(pk));
+    await _meta.remove(_stableHashKey(pk));
   }
 
   Future<void> push() async {

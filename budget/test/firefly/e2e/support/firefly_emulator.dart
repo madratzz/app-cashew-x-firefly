@@ -6,7 +6,8 @@ import '../../../support/fake_firefly_transport.dart';
 
 /// An in-memory Firefly III 6.6.2 with the behaviour the Phase 1 sync relies
 /// on: journal ids, date windows, `updated_at_after` search, computed
-/// `current_balance`, server-assigned account order and cascading deletes. It answers like the live server
+/// `current_balance`, server-assigned account order that is renumbered after
+/// an account edit, and cascading deletes. It answers like the live server
 /// for the requests the E2E suite sends, and nothing more.
 class FireflyEmulator extends FakeFireflyTransport {
   FireflyEmulator({DateTime Function()? clock})
@@ -23,6 +24,23 @@ class FireflyEmulator extends FakeFireflyTransport {
   final _groups = <String, JsonObject>{};
   final _categories = <String, JsonObject>{};
   var _nextJournal = 5000;
+
+  /// Accounts edited through the API. Firefly renumbers account order on
+  /// later writes and touches `updated_at` without a client edit.
+  final _reorder = <String>{};
+
+  void _renumberEditedAccounts() {
+    for (final id in _reorder) {
+      final account = _accounts[id];
+      if (account == null) continue;
+      seed('/accounts', id, {
+        ...account,
+        'order': ((account['order'] as int?) ?? 1) + 1,
+        'updated_at': _now,
+      });
+    }
+    _reorder.clear();
+  }
 
   static JsonObject _currency(String code, int decimals,
           {bool primary = false}) =>
@@ -161,6 +179,7 @@ class FireflyEmulator extends FakeFireflyTransport {
     path = _normalize(path);
     switch (path) {
       case '/transactions':
+        _renumberEditedAccounts();
         final splits = [
           for (final split in splitsOf(body))
             {
@@ -227,6 +246,7 @@ class FireflyEmulator extends FakeFireflyTransport {
     final collection = path.substring(0, slash);
     final id = path.substring(slash + 1);
     if (collection == '/transactions') {
+      _renumberEditedAccounts();
       final previous = _groups[id];
       if (previous == null) {
         requests.add((method: 'PUT', path: path, query: query, body: body));
@@ -254,6 +274,7 @@ class FireflyEmulator extends FakeFireflyTransport {
               .put(path, {...body, 'transactions': merged}, query: query));
     }
     final updated = await super.put(path, body, query: query);
+    if (collection == '/accounts') _reorder.add(id);
     return _store(collection) == null ? updated : _touch(collection, updated);
   }
 

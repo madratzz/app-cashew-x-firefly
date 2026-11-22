@@ -217,11 +217,11 @@ class _BudgetLimitAdapter extends CollectionAdapter<FireflyBudgetLimit> {
   Future<RemoteCollectionRow<FireflyBudgetLimit>> createRemote(
       LocalCollectionRow local) async {
     final parent = await _requireParent(local);
-    final body = await _body(local);
+    final created = _remote(
+        parent, await _api.createLimit(parent.remoteId, await _body(local)));
     // Firefly creates the current period's limit for a new auto budget, in
     // its primary currency when the budget has none, and accepts a second
-    // limit for the same period. Adopt the unmapped one; the PUT sets the
-    // local amount and currency.
+    // limit for the same period. Remove that unmapped duplicate.
     final listing = await readBudgetPages((page) => _api.listLimits(
         parent.remoteId,
         page: page,
@@ -229,16 +229,19 @@ class _BudgetLimitAdapter extends CollectionAdapter<FireflyBudgetLimit> {
     for (final item in listing.items) {
       final remote = _remote(parent, item);
       final fields = remote.fields;
-      if (fields['budget_fk'] != local.fields['budget_fk'] ||
+      if (remote.id == created.id ||
           fields['start'] != local.fields['start'] ||
           fields['end'] != local.fields['end'] ||
           await context.idMap.byRemote(type, remote.id) != null) {
         continue;
       }
-      return _remote(
-          parent, await _api.updateLimit(parent.remoteId, item.id, body));
+      try {
+        await _api.deleteLimit(parent.remoteId, item.id);
+      } on FireflyNotFound {
+        // Already gone.
+      }
     }
-    return _remote(parent, await _api.createLimit(parent.remoteId, body));
+    return created;
   }
 
   @override

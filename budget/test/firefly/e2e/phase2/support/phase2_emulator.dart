@@ -216,7 +216,8 @@ class Phase2Emulator extends FireflyEmulator {
         amount != null &&
         body['auto_budget_period'] == 'monthly') {
       final now = clock();
-      await super.post('/budgets/${budget['id']}/limits', {
+      // Seeded, not posted: the server makes it, the client sends nothing.
+      seed('/budgets/${budget['id']}/limits', 'auto${budget['id']}', {
         'start': formatFireflyDate(DateTime(now.year, now.month)),
         'end': formatFireflyDate(DateTime(now.year, now.month + 1, 0)),
         'amount': '$amount',
