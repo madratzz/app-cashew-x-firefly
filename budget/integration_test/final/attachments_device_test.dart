@@ -101,9 +101,14 @@ void main() {
             .items
             .where((item) => item.attachableId == mapping.remoteSubId)
             .single;
-        final served = await (await admin.attachments.download(remote.id))
-            .expand((chunk) => chunk)
-            .toList();
+        final List<int> served;
+        try {
+          served = await (await admin.attachments.download(remote.id))
+              .expand((chunk) => chunk)
+              .toList();
+        } on FireflyUnexpectedResponse catch (error) {
+          fail('download answered HTTP ${error.statusCode}');
+        }
         expect(served, bytes, reason: 'server copy');
 
         await sync(second);

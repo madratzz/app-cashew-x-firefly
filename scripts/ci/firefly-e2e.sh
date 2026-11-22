@@ -33,9 +33,17 @@ if [[ "$target" == host ]]; then
   done
   # The probe writes and removes its own fixtures, so it runs after the
   # suites that need an empty server.
-  echo "::group::A1-A7 probe"
+  # A6 is known unsupported (HTTP 500; the app keeps its fallback). A7 is
+  # proven by up.sh: every suite above authenticated with the token it minted.
+  echo "::group::A1-A6 probe"
+  probe_log="${RUNNER_TEMP:-/tmp}/probe.log"
   FIREFLY_BASE_URL=$FIREFLY_E2E_URL FIREFLY_API_TOKEN=$FIREFLY_E2E_TOKEN \
-    python3 -I tool/firefly_probe/probe.py --disposable --container cashew-firefly-e2e-app-1
+    python3 -I tool/firefly_probe/probe.py --disposable | tee "$probe_log" || true
+  echo "A7: verified by up.sh (token minted with mint.php, used by every suite)"
+  if grep -E '^A[1-5]: unverified|^Probe stopped|could not be removed' "$probe_log"; then
+    exit 1
+  fi
+  grep -q '^A6: ' "$probe_log"
   echo "::endgroup::"
   echo "::group::$attachments (linux)"
   xvfb-run --auto-servernum --server-args='-screen 0 1280x800x24' \
