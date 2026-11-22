@@ -8,7 +8,7 @@ WP-03 had no disposable live Firefly III 6.6.2 instance. A1–A7 remain unverifi
 | A2 | Request 100 records and check the server's pagination metadata. | Use the returned `per_page` and `total_pages`. |
 | A3 | Patch a category, account and transaction group. Re-read each and compare omitted fields. | Send full objects built from the last pulled copy when a resource does not preserve omitted fields. |
 | A4 | Create a transaction with a matching rule and compare the POST response with a GET for the same group. | Re-read pushed transaction groups. |
-| A5 | Create a piggy bank with `accounts[]` alone. If rejected, try with both `accounts[]` and `account_id`. | Send both fields. |
+| A5 | Corrected from [v6.6.2 source](https://github.com/firefly-iii/firefly-iii/blob/v6.6.2/app/Api/V1/Requests/Models/PiggyBank/StoreRequest.php), live run still pending. Create with `accounts[].account_id` and `transaction_currency_code`. If rejected, retry with a top-level `account_id` as well. | The app sends all three fields. |
 | A6 | Try creating a reconciliation split with only the asset account specified. | Push an unpaired correction as a withdrawal or deposit titled “Balance correction”. |
 | A7 | Mint a temporary personal access token inside the Docker container, verify it against the API and revoke it. | Supply a token to E2E through the environment. |
 

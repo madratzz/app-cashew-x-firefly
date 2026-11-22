@@ -189,10 +189,12 @@ def rule_effects(probe, withdrawal):
     return "rule effect already present in the POST response for the fixture"
 
 
-def piggy_bank(probe, asset_id):
+def piggy_bank(probe, asset):
+    asset_id = str(asset["id"])
     fields = {
         "name": probe.prefix,
-        "accounts": [{"id": asset_id, "current_amount": "0"}],
+        "accounts": [{"account_id": asset_id, "current_amount": "0"}],
+        "transaction_currency_code": asset["attributes"]["currency_code"],
         "target_amount": "10",
     }
     try:
@@ -204,7 +206,7 @@ def piggy_bank(probe, asset_id):
         variant = "accounts[] was rejected; sending both fields succeeded"
     else:
         variant = "accounts[] with no account_id was accepted"
-    if not any(str(account["id"]) == asset_id
+    if not any(str(account.get("account_id", account.get("id"))) == asset_id
                for account in piggy["attributes"]["accounts"]):
         raise ValueError("Piggy bank account was not retained")
     return variant
@@ -285,7 +287,7 @@ def run_checks(probe, container):
         a3 = probe.check("A3", lambda: preserve_omitted_fields(
             probe, asset, asset_path, transaction_path, stable))
         a4 = probe.check("A4", lambda: rule_effects(probe, withdrawal))
-        a5 = probe.check("A5", lambda: piggy_bank(probe, asset_id))
+        a5 = probe.check("A5", lambda: piggy_bank(probe, asset))
         a6 = probe.check("A6", lambda: reconciliation(
             probe, asset_id, dt.datetime.now(dt.timezone.utc).isoformat()))
         return all((a1, a3, a4, a5, a6))
