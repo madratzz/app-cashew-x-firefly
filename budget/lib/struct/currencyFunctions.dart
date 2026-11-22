@@ -3,6 +3,11 @@ import 'dart:convert';
 import 'package:budget/database/tables.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:budget/firefly/db/currency_queries.dart';
+import 'package:budget/firefly/config/log_redaction.dart';
+import 'package:budget/firefly/firefly.dart';
+import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/syncClient.dart';
 
 Map<String, dynamic> currenciesJSON = {};
 
@@ -17,6 +22,17 @@ Future<bool> getExchangeRates() async {
   //     await database.getUniqueCurrenciesFromWallets();
   Map<dynamic, dynamic> cachedCurrencyExchange =
       appStateSettings["cachedCurrencyExchange"];
+  if (FireflyMode.enabled) await registerFireflyCustomCurrencies();
+  Map<String, double>? serverRates =
+      useFireflyExchangeRates ? await fireflyServerExchangeRates() : null;
+  if (serverRates != null) {
+    updateSettings(
+      "cachedCurrencyExchange",
+      {...cachedCurrencyExchange, ...serverRates, "usd": 1},
+      updateGlobalState: cachedCurrencyExchange.isEmpty,
+    );
+    return true;
+  }
   try {
     Uri url = Uri.parse(
         "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.min.json");
@@ -36,6 +52,48 @@ Future<bool> getExchangeRates() async {
         appStateSettings["cachedCurrencyExchange"].keys.length <= 0,
   );
   return true;
+}
+
+// Not a default preference: a missing value means public rates are used
+const String fireflyExchangeRatesSetting = "fireflyServerExchangeRates";
+
+bool get useFireflyExchangeRates =>
+    FireflyMode.enabled && appStateSettings[fireflyExchangeRatesSetting] == true;
+
+// USD-based rates from the Firefly III server, or null to fall back to the public API
+Future<Map<String, double>?> fireflyServerExchangeRates() async {
+  try {
+    final scheduler = await fireflySchedulerIfEnabled();
+    if (scheduler == null) return null;
+    final Map<String, double> rates = await scheduler
+        .engine.context.api.exchangeRates
+        .latestRates("usd", onOrBefore: DateTime.now());
+    return rates.isEmpty ? null : rates;
+  } catch (e) {
+    logFirefly("Error getting Firefly exchange rates: $e");
+    return null;
+  }
+}
+
+// Server currencies missing from the bundled list become custom currencies
+Future<void> registerFireflyCustomCurrencies() async {
+  try {
+    final List<dynamic> customCurrencies =
+        List.from(appStateSettings["customCurrencies"] ?? []);
+    bool changed = false;
+    for (final currency in await database.watchFireflyCustomCurrencies().first) {
+      if (currency.code != null && !customCurrencies.contains(currency.code)) {
+        customCurrencies.add(currency.code);
+        changed = true;
+      }
+    }
+    if (changed) {
+      await updateSettings("customCurrencies", customCurrencies,
+          updateGlobalState: false);
+    }
+  } catch (e) {
+    logFirefly("Error registering Firefly currencies: $e");
+  }
 }
 
 double amountRatioToPrimaryCurrencyGivenPk(

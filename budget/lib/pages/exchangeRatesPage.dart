@@ -21,6 +21,7 @@ import 'package:budget/main.dart';
 import 'package:provider/provider.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/struct/settings.dart';
+import 'package:budget/firefly/firefly.dart';
 
 class ExchangeRates extends StatefulWidget {
   const ExchangeRates({super.key});
@@ -142,6 +143,21 @@ class _ExchangeRatesState extends State<ExchangeRates> {
         ),
       ],
       slivers: [
+        if (FireflyMode.enabled)
+          SliverToBoxAdapter(
+            child: SwitchListTile(
+              title: Text("firefly-currencies-server-rates".tr()),
+              subtitle:
+                  Text("firefly-currencies-server-rates-description".tr()),
+              value: useFireflyExchangeRates,
+              onChanged: (value) async {
+                await updateSettings(fireflyExchangeRatesSetting, value,
+                    updateGlobalState: false);
+                await getExchangeRates();
+                setState(() {});
+              },
+            ),
+          ),
         SliverToBoxAdapter(
           child: AboutInfoBox(
             title: "exchange-rates-api".tr(),

@@ -23,7 +23,10 @@ class ForeignCurrencyContributor extends TransactionContributor {
     Transaction row,
   ) async {
     if (!context.config.mode || context.isCancelled()) return row;
-    final eligible = split.type == 'withdrawal' || split.type == 'deposit';
+    // A mixed asset and liability withdrawal or deposit is projected as a
+    // local transfer pair whose rows already carry their own amounts.
+    final eligible = (split.type == 'withdrawal' || split.type == 'deposit') &&
+        row.fireflyType != FireflyTransactionType.transfer;
     final code = eligible ? split.foreignCurrencyCode?.trim() : null;
     final amount = eligible ? split.foreignAmount?.abs() : null;
     final hasForeign =
