@@ -1,4 +1,5 @@
 import 'package:budget/database/tables.dart';
+import 'package:budget/firefly/ui/pages/bills/common.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
@@ -21,6 +22,8 @@ import 'package:provider/provider.dart';
 Future createNewSubscriptionTransaction(
     BuildContext context, Transaction transaction,
     {String? closelyRelatedPairedTransactionFk}) async {
+  // Firefly creates the next occurrence of a server recurrence itself
+  if (await fireflyOwnsSchedule(database, transaction)) return;
   if (transaction.createdAnotherFutureTransaction == false) {
     if (transaction.type == TransactionSpecialType.subscription ||
         transaction.type == TransactionSpecialType.repetitive) {
