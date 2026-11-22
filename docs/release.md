@@ -50,3 +50,16 @@ The attachment test writes a binary file on the device, attaches it, syncs, then
 ## Action pinning
 
 Every action is pinned to a commit SHA with its version in a comment. Update a pin by resolving the new tag (`gh api repos/<owner>/<action>/commits/<tag> -q .sha`).
+
+## Release notes
+
+### v1.0.0-firefly.1
+
+First release of the Firefly III fork of Cashew.
+
+- Firefly III mode: two-way sync with a self-hosted Firefly III 6.6.2 using a personal access token kept in the platform's secure store. Asset and liability accounts, categories and subcategories, transactions including transfers and splits, payees, tags, budgets and limits, piggy banks, bills, recurrences, currencies and exchange rates, attachments, rules, object groups and transaction links.
+- Optional roaming of Cashew colours, icons and order across devices through Firefly III preferences (off by default).
+- Conflicts keep the server version and store the local one for re-applying; offline edits are pushed once on reconnect.
+- Google sign-in, Google Drive backup and Firebase are removed. Local export and import stay.
+- Builds for Android, iOS, macOS, Linux and Windows. iOS is unsigned, macOS ad-hoc signed, and Android signed with a throwaway key unless the signing secrets are configured.
+- Every pull request runs the live end-to-end suites against a disposable Firefly III in Docker and an on-device attachment round trip on Linux, Android, macOS and iOS.

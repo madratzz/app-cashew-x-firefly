@@ -20,6 +20,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           path: dist
@@ -30,4 +31,10 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           ls -l dist
-          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes --verify-tag
+          # The tag's section of docs/release.md, or GitHub's generated notes.
+          awk -v tag="### $TAG" '$0 == tag { on = 1; next } on && /^#/ { exit } on' docs/release.md > notes.md
+          if [[ ! -s notes.md ]]; then
+            gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes --verify-tag
+            exit 0
+          fi
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file notes.md --verify-tag
