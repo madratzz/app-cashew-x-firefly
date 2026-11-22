@@ -34,18 +34,31 @@ void main() {
             foreignCurrency: const Value('eur'),
             billFk: const Value('former-bill'),
             splitGroupFk: Value(group.groupPk),
+            splitOrder: const Value(0),
             dateTimeModified: Value(fixtureTime),
           ),
         );
+    final sibling = await db.into(db.transactions).insertReturning(
+          TransactionsCompanion.insert(
+            name: 'Sibling',
+            amount: -2,
+            note: '',
+            categoryFk: '0',
+            splitGroupFk: Value(group.groupPk),
+            splitOrder: const Value(1),
+          ),
+        );
+    final transaction = db.select(db.transactions)
+      ..where((entry) => entry.transactionPk.equals(row.transactionPk));
 
     final draft = FireflyTransactionDraft(db);
     await draft.load(row.transactionPk);
     expect(draft.foreignAmount, 15);
     expect(draft.billPk, 'former-bill');
-    expect(draft.splits, isEmpty);
+    expect(draft.splits, [row, sibling]);
     expect(draft.attachments, isEmpty);
     await draft.persist(row.transactionPk);
-    expect(await db.select(db.transactions).getSingle(), row);
+    expect(await transaction.getSingle(), row);
 
     final tag = await db.into(db.tags).insertReturning(
           TagsCompanion.insert(name: 'Example'),
@@ -56,7 +69,7 @@ void main() {
       ..billPk = null
       ..tagPks = {tag.tagPk};
     await draft.persist(row.transactionPk);
-    final saved = await db.select(db.transactions).getSingle();
+    final saved = await transaction.getSingle();
     expect(saved.note, 'Legacy note');
     expect(saved.foreignCurrency, 'usd');
     expect(saved.foreignAmount, 20);
