@@ -91,6 +91,15 @@ abstract class TransactionContributor {
   String get id;
   int get version => 0;
 
+  /// Projects remote split fields onto the candidate row for conflict hashing.
+  /// Perform no writes here. Clear owned local fields absent from the split.
+  Future<Transaction> projectRemote(
+          SyncContext context,
+          FireflyTransaction group,
+          FireflyTransactionSplit split,
+          Transaction row) async =>
+      row;
+
   /// Runs in the same database transaction as applying the split.
   Future<void> pull(SyncContext context, FireflyTransaction group,
       FireflyTransactionSplit split, String transactionPk) async {}

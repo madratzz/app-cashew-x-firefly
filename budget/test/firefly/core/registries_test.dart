@@ -69,7 +69,7 @@ void main() {
     final split = <String, Object?>{'description': 'Sample'};
     for (final contributor in transactionContributors) {
       expect(ids.add(contributor.id), isTrue);
-      expect(contributor.version, 0);
+      expect(contributor.version, contributor.id == 'budget' ? 1 : 0);
       await contributor.pull(
         context,
         const FireflyTransaction(id: '0'),
@@ -112,6 +112,16 @@ void main() {
     final roaming = FireflyMetaRoaming(context);
     await roaming.pull();
     await roaming.push();
+    expect(
+      transport.requests
+          .where((request) =>
+              request.path == '/budgets' ||
+              request.path == '/available-budgets')
+          .map((request) => (request.method, request.path)),
+      [('GET', '/budgets'), ('GET', '/available-budgets')],
+    );
+    transport.requests.removeWhere((request) =>
+        request.path == '/budgets' || request.path == '/available-budgets');
     expect(transport.requests, isEmpty);
   });
 }
