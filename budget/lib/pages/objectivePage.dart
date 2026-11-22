@@ -1,4 +1,5 @@
 import 'package:budget/database/tables.dart';
+import 'package:budget/firefly/ui/pages/piggy_banks/piggy_bank_ui.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addObjectivePage.dart';
 import 'package:budget/pages/addTransactionPage.dart';
@@ -561,6 +562,14 @@ class _ObjectivePageContentState extends State<_ObjectivePageContent> {
                   },
                 ),
               ),
+              if (fireflyPiggyMode(widget.objective))
+                SliverPadding(
+                  padding: const EdgeInsetsDirectional.symmetric(horizontal: 20),
+                  sliver: SliverToBoxAdapter(
+                    child: FireflyPiggyBankActions(
+                        db: database, objective: widget.objective),
+                  ),
+                ),
               if (getIsDifferenceOnlyLoan(widget.objective) == true)
                 SliverToBoxAdapter(child: SizedBox(height: 20)),
               if (getIsDifferenceOnlyLoan(widget.objective) == false)
