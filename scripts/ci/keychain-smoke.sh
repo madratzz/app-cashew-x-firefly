@@ -13,8 +13,14 @@ else
   xcrun simctl boot "$device"
   xcrun simctl bootstatus "$device" -b
 fi
+# Prebuild so the Pods compile outside flutter test's 12-minute load timeout.
+if [[ "$1" == macos ]]; then
+  flutter build macos --debug -t integration_test/token_store_smoke_test.dart
+else
+  flutter build ios --simulator --debug -t integration_test/token_store_smoke_test.dart
+fi
 log="${RUNNER_TEMP:-/tmp}/keychain-smoke.log"
-if ! flutter test integration_test/token_store_smoke_test.dart -d "$device" --verbose > "$log" 2>&1; then
+if ! flutter test integration_test/token_store_smoke_test.dart -d "$device" > "$log" 2>&1; then
   grep -v "Localization key" "$log" | tail -150
   exit 1
 fi
