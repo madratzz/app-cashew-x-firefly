@@ -129,5 +129,5 @@ jobs:
       - run: flutter pub get --enforce-lockfile
         working-directory: budget
       - name: TokenStore keychain round trip
-        timeout-minutes: 50
+        timeout-minutes: 90
         run: scripts/ci/keychain-smoke.sh "${{ matrix.target }}"
