@@ -217,8 +217,23 @@ class _BudgetLimitAdapter extends CollectionAdapter<FireflyBudgetLimit> {
   Future<RemoteCollectionRow<FireflyBudgetLimit>> createRemote(
       LocalCollectionRow local) async {
     final parent = await _requireParent(local);
-    return _remote(
-        parent, await _api.createLimit(parent.remoteId, await _body(local)));
+    final body = await _body(local);
+    // Firefly creates the current period's limit for a new auto budget, and
+    // accepts a second limit for the same period. Adopt the unmapped one.
+    final listing = await readBudgetPages((page) => _api.listLimits(
+        parent.remoteId,
+        page: page,
+        limit: context.config.pageSize));
+    for (final item in listing.items) {
+      final remote = _remote(parent, item);
+      if (!_samePeriod(remote.fields, local.fields) ||
+          await context.idMap.byRemote(type, remote.id) != null) {
+        continue;
+      }
+      return _remote(
+          parent, await _api.updateLimit(parent.remoteId, item.id, body));
+    }
+    return _remote(parent, await _api.createLimit(parent.remoteId, body));
   }
 
   @override

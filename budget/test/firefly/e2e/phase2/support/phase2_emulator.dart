@@ -93,6 +93,7 @@ class Phase2Emulator extends FireflyEmulator {
   @override
   Future<JsonObject> post(String path, JsonObject body,
       {FireflyQuery query = const {}}) async {
+    if (_normalize(path) == '/budgets') return _postBudget(body, query);
     if (_normalize(path) != _banks) return super.post(path, body, query: query);
     if (body['transaction_currency_code'] == null) {
       throw const FireflyValidation('Missing piggy bank currency');
@@ -150,6 +151,27 @@ class Phase2Emulator extends FireflyEmulator {
       'updated_at': _time,
       if (accounts != null) 'accounts': accounts,
     });
+  }
+
+  /// Firefly 6.6.2 creates the current period's limit for a new auto
+  /// budget, and accepts a second limit for the same period.
+  Future<JsonObject> _postBudget(JsonObject body, FireflyQuery query) async {
+    final budget = await super.post('/budgets', body, query: query);
+    final type = body['auto_budget_type'];
+    final amount = body['auto_budget_amount'];
+    if ((type == 'reset' || type == 'rollover') &&
+        amount != null &&
+        body['auto_budget_period'] == 'monthly') {
+      final now = clock();
+      await super.post('/budgets/${budget['id']}/limits', {
+        'start': formatFireflyDate(DateTime(now.year, now.month)),
+        'end': formatFireflyDate(DateTime(now.year, now.month + 1, 0)),
+        'amount': '$amount',
+        'currency_code': body['auto_budget_currency_code'] ?? 'USD',
+        'updated_at': _time,
+      });
+    }
+    return budget;
   }
 
   void _event(String bank, double amount) =>

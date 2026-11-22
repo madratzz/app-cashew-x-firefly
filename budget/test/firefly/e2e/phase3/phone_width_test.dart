@@ -18,22 +18,27 @@ class _FakeTokens extends TokenStore {
 }
 
 void main() {
+  late FinanceDatabase db;
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    sharedPreferences = await SharedPreferences.getInstance();
+    appStateSettings = await getDefaultPreferences();
+    appStateSettings['fireflyMode'] = true;
+    await FireflyMode.init(() => appStateSettings, tokenStore: _FakeTokens());
+    db = inMemoryFinanceDatabase();
+    database = db;
+  });
+
+  tearDown(() async {
+    appStateSettings['fireflyMode'] = false;
+    await FireflyMode.init(() => appStateSettings);
+    // Awaiting close inside a fake-async widget test never completes.
+    db.close();
+  });
+
   testWidgets('every add-transaction section fits a phone screen',
       (tester) async {
-    late FinanceDatabase db;
-    await tester.runAsync(() async {
-      SharedPreferences.setMockInitialValues({});
-      sharedPreferences = await SharedPreferences.getInstance();
-      appStateSettings = await getDefaultPreferences();
-      appStateSettings['fireflyMode'] = true;
-      await FireflyMode.init(() => appStateSettings, tokenStore: _FakeTokens());
-      db = inMemoryFinanceDatabase();
-      database = db;
-    });
-    addTearDown(() async {
-      appStateSettings['fireflyMode'] = false;
-      await FireflyMode.init(() => appStateSettings);
-    });
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -72,6 +77,5 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 1));
-    await tester.runAsync(db.close);
   });
 }
