@@ -3,6 +3,7 @@ import 'package:budget/firefly/db/objective_queries.dart';
 import 'package:budget/firefly/firefly.dart';
 import 'package:budget/firefly/sync/contracts.dart';
 import 'package:budget/firefly/sync/entities/piggy_bank_syncer.dart';
+import 'package:budget/firefly/ui/pages/links/object_group_label.dart';
 import 'package:budget/firefly/ui/pages/piggy_banks/piggy_bank_events_page.dart';
 import 'package:budget/struct/syncClient.dart';
 import 'package:drift/drift.dart' show TableUpdateQuery;
@@ -120,6 +121,8 @@ class FireflyPiggyBankActions extends StatelessWidget {
       alignment: WrapAlignment.center,
       spacing: 8,
       children: [
+        FireflyPiggyBankObjectGroupLabel(
+            db: db, objectivePk: objective.objectivePk),
         OutlinedButton.icon(
           icon: const Icon(Icons.add_rounded),
           label: Text("firefly-piggy-add-money".tr()),
