@@ -37,8 +37,15 @@ class E2eTarget {
   final FireflyEmulator? emulator;
   final Future<void> Function() _close;
 
-  static String? get liveUrl => Platform.environment['FIREFLY_E2E_URL'];
-  static String? get liveToken => Platform.environment['FIREFLY_E2E_TOKEN'];
+  // A device under `flutter test integration_test` does not inherit the host
+  // environment, so the values can also come in as --dart-define.
+  static String? get liveUrl => _setting(
+      const String.fromEnvironment('FIREFLY_E2E_URL'), 'FIREFLY_E2E_URL');
+  static String? get liveToken => _setting(
+      const String.fromEnvironment('FIREFLY_E2E_TOKEN'), 'FIREFLY_E2E_TOKEN');
+
+  static String? _setting(String defined, String name) =>
+      defined.isNotEmpty ? defined : Platform.environment[name];
 
   /// The disposable server named by FIREFLY_E2E_URL and FIREFLY_E2E_TOKEN.
   static E2eTarget? fromEnvironment() {
