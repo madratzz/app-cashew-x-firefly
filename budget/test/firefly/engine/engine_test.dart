@@ -359,6 +359,73 @@ void main() {
     expect(report.balanceMismatches, {'asset': 0.5});
   });
 
+  Future<void> seedRoamingCategory() async {
+    await db.into(db.categories).insert(CategoriesCompanion.insert(
+          categoryPk: const Value('roam'),
+          name: 'roam',
+          order: 3,
+          colour: const Value('112233'),
+          dateTimeModified: Value(fixtureTime),
+        ));
+    await db.into(db.fireflyIdMap).insert(
+        fixtureMapping(type: _category, localPk: 'roam', remoteId: '15'));
+  }
+
+  Future<List<String>> roamingCycle(FireflyConfig config) async {
+    await seedRoamingCategory();
+    transport.onRequest = (request) =>
+        calls.add('${request.method} ${request.path}'.replaceFirst('GET ', ''));
+    final engine = engineFor([
+      _Syncer(_category, calls),
+    ], withContext: SyncContext(db: db, api: context.api, config: config));
+    final report = await engine.run();
+    expect(report.succeeded, isTrue);
+    return calls;
+  }
+
+  test('meta roaming off leaves the cycle unchanged', () async {
+    expect(await roamingCycle(_enabled), [
+      '/about',
+      '/about/user',
+      'pull:category',
+      'push:category',
+      'delete:category',
+    ]);
+  });
+
+  test('meta roaming pulls after pulls and pushes after deletes', () async {
+    const config = FireflyConfig(
+        mode: true, baseUrl: 'https://example.test/api/v1', metaRoaming: true);
+    expect(await roamingCycle(config), [
+      '/about',
+      '/about/user',
+      'pull:category',
+      '/preferences/cashew.categories.v1',
+      'push:category',
+      'delete:category',
+      '/preferences/cashew.categories.v1',
+      'POST /preferences',
+    ]);
+  });
+
+  test('a meta roaming failure is reported without blocking entity sync',
+      () async {
+    const config = FireflyConfig(
+        mode: true, baseUrl: 'https://example.test/api/v1', metaRoaming: true);
+    await seedRoamingCategory();
+    transport.onRequest = (request) {
+      if (request.path.startsWith('/preferences')) {
+        throw const FireflyValidation('rejected');
+      }
+    };
+    final engine = engineFor([_Syncer(_category, calls)],
+        withContext: SyncContext(db: db, api: context.api, config: config));
+    final report = await engine.run();
+    expect(calls, ['pull:category', 'push:category', 'delete:category']);
+    expect(report.issues.map((issue) => issue.message),
+        ['firefly-sync-failed', 'firefly-sync-failed']);
+  });
+
   test('mode off makes manual and automatic triggers inert', () async {
     final engine = engineFor([_Syncer(_category, calls)],
         withContext: SyncContext(

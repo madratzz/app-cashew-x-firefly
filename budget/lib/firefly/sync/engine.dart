@@ -12,6 +12,7 @@ import 'package:budget/firefly/db/sync_meta_repository.dart';
 import 'package:budget/firefly/sync/contracts.dart';
 import 'package:budget/firefly/sync/dirty_tracker.dart';
 import 'package:budget/firefly/sync/hashing.dart';
+import 'package:budget/firefly/sync/meta_roaming.dart';
 import 'package:budget/firefly/sync/registry.dart';
 import 'package:flutter/foundation.dart';
 
@@ -120,6 +121,20 @@ class SyncEngine {
       entityType = null;
     }
 
+    // Presentation roaming never blocks the entity sync around it.
+    Future<void> runRoaming(Future<void> Function() action) async {
+      if (!context.config.metaRoaming) return;
+      _checkCancelled();
+      entityType = null;
+      try {
+        await action();
+      } catch (error) {
+        if (_abortsCycle(error)) rethrow;
+        reportError(error);
+      }
+      _checkCancelled();
+    }
+
     try {
       _checkCancelled();
       _progress.add(const SyncProgress(SyncPhase.preflight));
@@ -150,9 +165,13 @@ class SyncEngine {
           await _checkpointTransactionPull(cycle, startedAt, versions);
         }
       });
+      final roaming =
+          FireflyMetaRoaming(cycle, enabled: cycle.config.metaRoaming);
+      await runRoaming(roaming.pull);
       await runPhase(SyncPhase.push, syncers, (syncer) => syncer.push(cycle));
       await runPhase(SyncPhase.delete, syncers.reversed,
           (syncer) => syncer.pushDeletes(cycle));
+      await runRoaming(roaming.push);
 
       _checkCancelled();
       phase = SyncPhase.reread;

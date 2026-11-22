@@ -27,6 +27,7 @@ Future<Map<String, dynamic>> getDefaultPreferences() async {
     "fireflyTransactionWindowDays": 90,
     "fireflyPageSize": 100,
     "fireflySubcategorySeparator": " / ",
+    "fireflyMetaRoaming": false,
     "devicesHaveBeenSynced": 1,
     "numBackups": 1,
     "theme": "system", //system, light, dark
