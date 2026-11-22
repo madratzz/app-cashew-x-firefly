@@ -2,7 +2,7 @@
 
 Cross-package seams that wave-1 packages could not close because the other side merges in parallel.
 
-- [ ] main.dart: replace FlutterTimezone.getLocalTimezone() with localTimezoneName() from package:budget/platform/timezone.dart (WP-P1); keep the tz.getLocation fallback to America/New_York. **Blocked:** WP-P1 (`feature-platform-desktop`) is not merged into `firefly-sync`, so `lib/platform/timezone.dart` does not exist on the base yet. Do this when WP-P1 merges.
+- [ ] main.dart: replace FlutterTimezone.getLocalTimezone() with localTimezoneName() from package:budget/platform/timezone.dart (WP-P1); keep the tz.getLocation fallback to America/New_York. **After WP-P1.** Blocked: WP-P1 (`feature-platform-desktop`) is not merged into `firefly-sync`, so `lib/platform/timezone.dart` does not exist on the base yet. Do this when WP-P1 merges.
 - [x] Wallet deletes in Firefly mode: route the remaining legacy delete paths to FireflyWalletQueries.deleteWalletLocally(walletPk) (WP-10). The primary-wallet "0" delete/merge stays disabled in Firefly mode. Done: `FinanceDatabase.deleteWallet` routes to `deleteWalletLocally` in Firefly mode and ignores wallet "0"; this covers the delete and merge paths in `editWalletsPage.dart`. Test: `test/firefly/e2e/seams_test.dart`.
 - [x] Localize the display name of the reserved local category "firefly-uncategorized" (persisted as "Uncategorized"). Done: `fireflyUncategorizedName()` uses `firefly-category-uncategorized` (`assets/translations/firefly/en/integration.json`), with "Uncategorized" when no locale is loaded. The row is renamed when the language changes; it never syncs.
 - [x] Re-enable budget/integration_test in gate G3 once this package creates it. Done: `budget/integration_test/` exists, so CI G3 now analyses it.
