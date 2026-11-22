@@ -1,5 +1,7 @@
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
+import 'package:budget/firefly/firefly.dart';
+import 'package:budget/firefly/ui/pages/bills/bills_page.dart';
 import 'package:budget/pages/addBudgetPage.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/upcomingOverdueTransactionsPage.dart';
@@ -52,6 +54,7 @@ class SubscriptionsPageState extends State<SubscriptionsPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (FireflyMode.enabled) return const FireflyBillsPage();
     String pageId = "Subscriptions";
 
     return WillPopScope(

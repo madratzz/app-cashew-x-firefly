@@ -1,5 +1,7 @@
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
+import 'package:budget/firefly/firefly.dart';
+import 'package:budget/firefly/ui/pages/bills/upcoming_recurrences.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/subscriptionsPage.dart';
@@ -239,6 +241,14 @@ class UpcomingOverdueTransactionsState
           SliverToBoxAdapter(
             child: SizedBox(height: 15),
           ),
+          if (FireflyMode.enabled && overdueTransactions != true)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsetsDirectional.symmetric(
+                    horizontal: getHorizontalPaddingConstrained(context)),
+                child: FireflyUpcomingRecurrences(),
+              ),
+            ),
           StreamBuilder<List<Transaction>>(
             stream: database.watchAllOverdueUpcomingTransactions(
                 overdueTransactions,
