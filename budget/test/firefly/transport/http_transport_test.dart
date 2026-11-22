@@ -18,6 +18,32 @@ const _allowHttp = bool.fromEnvironment('FIREFLY_ALLOW_HTTP');
 const _fixture = 'REDACTED-fixture';
 
 void main() {
+  test('POST unwraps object data and retains array envelopes', () async {
+    const resource = {'id': '1', 'attributes': {'name': 'Sample'}};
+    const array = {
+      'data': [resource],
+      'meta': {'count': 1},
+      'links': {'self': '/sample'},
+    };
+    final transport = HttpFireflyTransport(
+      baseUrl: Uri.parse('https://firefly.example'),
+      readToken: () async => _fixture,
+      client: MockClient((request) async {
+        final payload = switch (request.url.path) {
+          '/api/v1/object' => {'data': resource, 'meta': array['meta']},
+          '/api/v1/empty' => {'data': <Object?>[]},
+          _ => array,
+        };
+        return http.Response(jsonEncode(payload), 200);
+      }),
+    );
+    addTearDown(transport.close);
+
+    expect(await transport.post('/object', {}), resource);
+    expect(await transport.post('/array', {}), array);
+    expect(await transport.post('/empty', {}), {'data': <Object?>[]});
+  });
+
   test('validates HTTPS URLs before requesting a token', () async {
     final requests = <Uri>[];
     var tokenReads = 0;
