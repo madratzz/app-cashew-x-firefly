@@ -71,8 +71,14 @@ void main() {
       expect(ids.add(contributor.id), isTrue);
       expect(
           contributor.version,
-          const {'payee', 'budget', 'bill', 'piggyBank', 'foreignCurrency'}
-                  .contains(contributor.id)
+          const {
+            'payee',
+            'budget',
+            'bill',
+            'piggyBank',
+            'foreignCurrency',
+            'tags'
+          }.contains(contributor.id)
               ? 1
               : 0);
       await contributor.pull(
