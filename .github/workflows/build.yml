@@ -61,6 +61,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev libjsoncpp-dev libsqlite3-dev
+      - if: matrix.target == 'windows'
+        name: Install SQLite for host tests
+        run: scripts/ci/windows-sqlite.sh
       - name: Install pinned Flutter
         run: scripts/ci/install-flutter.sh
       - run: flutter pub get --enforce-lockfile
