@@ -3857,9 +3857,40 @@ class FinanceDatabase extends _$FinanceDatabase {
       companionToInsert = companionToInsert.copyWith(methodAdded: Value(null));
     }
 
+    // Firefly mode: a replacing insert deletes the row first, which churns
+    // child rows keyed to it (tag links, attachments, id mappings). Update the
+    // existing row in place instead.
+    if (insert == false && FireflyMode.enabled) {
+      final int? rowId = await _transactionRowId(transaction.transactionPk);
+      if (rowId != null) {
+        await (update(transactions)
+              ..where((t) => t.transactionPk.equals(transaction.transactionPk)))
+            .write(companionToInsert);
+        return rowId;
+      }
+    }
+
     return into(transactions)
         .insert((companionToInsert), mode: InsertMode.insertOrReplace);
   }
+
+  Future<int?> _transactionRowId(String transactionPk) async {
+    final row = await customSelect(
+      'SELECT rowid FROM transactions WHERE transaction_pk = ?',
+      variables: [Variable.withString(transactionPk)],
+      readsFrom: {transactions},
+    ).getSingleOrNull();
+    return row?.read<int>('rowid');
+  }
+
+  // Foreign keys are not enforced on native, so tag links of deleted
+  // transactions are removed here. Without Firefly mode the table is empty.
+  Future<void> deleteOrphanTransactionTags() => customUpdate(
+        'DELETE FROM transaction_tags WHERE transaction_fk NOT IN '
+        '(SELECT transaction_pk FROM transactions)',
+        updates: {transactionTags},
+        updateKind: UpdateKind.delete,
+      );
 
   // ************************************************************
   // The following functions should only be used for data sync
@@ -4448,10 +4479,12 @@ class FinanceDatabase extends _$FinanceDatabase {
         .first;
     await createDeleteLog(
         DeleteLogType.Transaction, transactionToDelete.transactionPk);
-    return (delete(transactions)
+    final int deleted = await (delete(transactions)
           ..where(
               (t) => t.transactionPk.equals(transactionToDelete.transactionPk)))
         .go();
+    await deleteOrphanTransactionTags();
+    return deleted;
   }
 
   Future<List<Transaction>> get allTransactions => select(transactions).get();
@@ -5162,9 +5195,11 @@ class FinanceDatabase extends _$FinanceDatabase {
       }
     }
     await createDeleteLog(DeleteLogType.Transaction, transactionPk);
-    return (delete(transactions)
+    final int deleted = await (delete(transactions)
           ..where((t) => t.transactionPk.equals(transactionPk)))
         .go();
+    await deleteOrphanTransactionTags();
+    return deleted;
   }
 
   Future deleteTransactions(List<String> transactionPks,
@@ -5186,9 +5221,11 @@ class FinanceDatabase extends _$FinanceDatabase {
     }
 
     await createDeleteLogs(DeleteLogType.Transaction, transactionPks);
-    return (delete(transactions)
+    final int deleted = await (delete(transactions)
           ..where((t) => t.transactionPk.isIn(transactionPks)))
         .go();
+    await deleteOrphanTransactionTags();
+    return deleted;
   }
 
   Future forceDeleteBudgets(List<String> budgetPks) async {
@@ -5278,8 +5315,11 @@ class FinanceDatabase extends _$FinanceDatabase {
         .map((transaction) => transaction.transactionPk)
         .toList();
     await createDeleteLogs(DeleteLogType.Transaction, transactionPks);
-    return (delete(transactions)..where((t) => t.categoryFk.equals(categoryPk)))
+    final int deleted = await (delete(transactions)
+          ..where((t) => t.categoryFk.equals(categoryPk)))
         .go();
+    await deleteOrphanTransactionTags();
+    return deleted;
   }
 
   //delete associatedTitles that belong to specific category key
@@ -5558,8 +5598,11 @@ class FinanceDatabase extends _$FinanceDatabase {
     List<String> transactionPks =
         transactionPkForDelete.map((t) => t.transactionPk).toList();
     await createDeleteLogs(DeleteLogType.Transaction, transactionPks);
-    return (delete(transactions)..where((t) => t.walletFk.equals(walletPk)))
+    final int deleted = await (delete(transactions)
+          ..where((t) => t.walletFk.equals(walletPk)))
         .go();
+    await deleteOrphanTransactionTags();
+    return deleted;
   }
 
   //delete associated title given key

@@ -17,6 +17,7 @@ void definePhase1Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     {required bool live}) {
   final clock = E2eClock(live: live);
   E2eTarget? target;
+  E2eServerSnapshot? snapshot;
   late E2eDevice device;
   late E2eSeed seed;
 
@@ -24,6 +25,7 @@ void definePhase1Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     target = await open(clock);
     if (target == null) return;
     device = E2eDevice(target!, clock);
+    if (live) snapshot = await E2eServerSnapshot.take(target!);
     final existing = await device.admin.transactions.list(limit: 1);
     if (existing.total > 0) {
       throw StateError('The E2E server must start empty. Use a fresh '
@@ -34,6 +36,7 @@ void definePhase1Suite(Future<E2eTarget?> Function(E2eClock clock) open,
 
   tearDownAll(() async {
     if (target == null) return;
+    await snapshot?.restore();
     await device.close();
     await target!.close();
   });

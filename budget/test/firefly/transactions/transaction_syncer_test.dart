@@ -377,7 +377,9 @@ void main() {
     await expectLater(
         _syncer.pull(context), throwsA(isA<FireflyNetworkError>()));
     expect(await context.meta.read(SyncMetaRepository.transactionPage), '2');
-    expect(await db.fireflyTransactions(), hasLength(1));
+    // The page's last group may continue on page 2, so it waits in the
+    // checkpoint.
+    expect(await db.fireflyTransactions(), isEmpty);
     transport.onRequest = null;
     transport.requests.clear();
     await _syncer.pull(cycle(SyncPullMode.initial));

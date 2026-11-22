@@ -12,7 +12,10 @@ Run every command from `budget/` with the pinned Flutter (`fvm flutter`).
 | Seam tests (mode-off legacy delete, wallet delete routing, labels) | `test/firefly/e2e/seams_test.dart` | Nothing | Yes |
 | Phase 2 E2E, emulated server | `test/firefly/e2e/phase2/fake_server_phase2_e2e_test.dart` | Nothing | Yes |
 | Phase 2 E2E, live server | `test/firefly/e2e/phase2/live_phase2_e2e_test.dart` (tag `live`) | `FIREFLY_E2E_URL`, `FIREFLY_E2E_TOKEN`, a fresh instance | Yes, skipped when unset |
-| On-device E2E | `integration_test/firefly_phase1_test.dart`, `integration_test/phase2/firefly_phase2_test.dart` | A device or desktop target | No: `fvm flutter test integration_test -d <device>` |
+| Phase 3 E2E, emulated server | `test/firefly/e2e/phase3/fake_server_phase3_e2e_test.dart` | Nothing | Yes |
+| Phase 3 E2E, live server | `test/firefly/e2e/phase3/live_phase3_e2e_test.dart` (tag `live`) | `FIREFLY_E2E_URL`, `FIREFLY_E2E_TOKEN` | Yes, skipped when unset |
+| Phase 3 seams (in-place saves, tag links on delete, conflict reapply, payee direction, phone width) | `test/firefly/e2e/phase3/*_test.dart` | Nothing | Yes |
+| On-device E2E | `integration_test/firefly_phase1_test.dart`, `integration_test/phase2/firefly_phase2_test.dart`, `integration_test/phase3/firefly_phase3_test.dart` | A device or desktop target | No: `fvm flutter test integration_test -d <device>` |
 
 The emulated and live runs share one scenario file, `test/firefly/e2e/support/phase1_suite.dart`. It drives the real `SyncEngine`, the default syncer registry and `HttpFireflyTransport` over HTTP. The tests run in order against one server and one device:
 
@@ -36,13 +39,30 @@ The emulator (`test/firefly/e2e/support/firefly_emulator.dart`) models only what
 3. Money added to a piggy bank on the device and on the server shows on the other side, with the history events.
 4. A bill linked to a transaction on either side shows on the other.
 5. A triggered recurrence imports its transaction once, with no local duplicate on the next cycle.
-6. A rejected recurrence repetition moment (below) is stored as the mapping's error for the editor to show. The local edit stays.
+6. A repetition moment edited on the device reaches the server in one PUT, and the next cycle sends nothing.
 
-The emulator (`phase2/support/phase2_emulator.dart`) extends the Phase 1 one with piggy bank account amounts and events, `POST /recurrences/{id}/trigger`, and the moment validation below.
+The emulator (`phase2/support/phase2_emulator.dart`) extends the Phase 1 one with piggy bank account amounts and events, the auto-budget limit, weekly recurrence occurrences with `POST /recurrences/{id}/trigger`, and the 6.6.2 validation rules listed below.
 
-### Upstream limitation: recurrence moment on PUT
+## Phase 3 scenarios
 
-Firefly III 6.6.2 `UpdateRequest` rejects some repetition `moment` values the API documents (numeric `0` to `10`, for example a weekday for `weekly`) on `PUT /v1/recurrences/{id}`, while `POST` accepts them. The app sends only changed fields, so only an edit of the moment is affected. It is not dropped silently: the sync stores the 422 message as the recurrence's `lastError`, the editor shows it, and the local edit is kept. Workaround: change the moment in the Firefly web UI, or recreate the recurrence. The emulator models the rejection; the live suite accepts either outcome and checks the matching state.
+`test/firefly/e2e/phase3/support/phase3_suite.dart` runs in order against one server with two devices:
+
+1. One withdrawal with a payee, two tags, a foreign amount, a budget, a bill and an attachment, set through `FireflyTransactionDraft` as the add-transaction page does. It is checked on the server and on the second device, and a further cycle on either device writes nothing.
+2. A three-split group created on the device reaches the server. The second device retitles it and removes a split, and the first device sees both changes.
+3. A payment from an asset account to a loan. Firefly stores it as a withdrawal; both devices show the local transfer pair.
+4. Deleting the rich transaction removes it on the server and on the second device, with no orphaned tag links.
+
+Objects carry a per-run suffix, so this suite does not need an empty server.
+
+The emulator (`phase3/support/phase3_emulator.dart`) adds the liability read shape, the md5 hash and size that an attachment upload stamps, and journal pagination (below).
+
+## Firefly 6.6.2 behaviour found on the live server
+
+- `GET /transactions` pages by journal. `total` and `per_page` count splits, and a split group can continue on the next page with its remaining splits. The transaction pull holds back each page's last group, merges it with its continuation, and keeps it in the resume checkpoint. The Phase 3 emulator pages by journal, two per page.
+- A budget POSTed with an auto-budget amount gets the current period's limit from the server, and the server also accepts a second limit for the same period. The limit syncer adopts that unmapped limit instead of creating another one.
+- `POST /piggy-banks` requires `start_date`.
+- `PUT /recurrences/{id}` requires `transactions` in every request ("Need at least one transaction."), even for a title-only edit, so the app always sends them. Repetition moments from 0 to 10 are accepted on PUT; an earlier note that they were rejected was wrong.
+- `POST /recurrences/{id}/trigger?date=` creates a group only when the date is a listed occurrence, and only once per occurrence. The app triggers the server's next occurrence.
 
 ## Live run against a disposable Firefly III 6.6.2
 
@@ -56,6 +76,8 @@ fvm flutter test --dart-define=FIREFLY_ALLOW_HTTP=true test/firefly/e2e/live_e2e
 
 `FIREFLY_ALLOW_HTTP=true` lets the debug test build reach `http://127.0.0.1`. To run on another host, forward the port over SSH (`ssh -L 8089:127.0.0.1:8089 <host>`) so the URL stays loopback.
 
+A live run records the ids on the server before it starts (`E2eServerSnapshot` in `e2e_harness.dart`) and deletes only what it created, so the three suites can run one after another on one persistent instance. The Phase 1 and Phase 2 suites still refuse a server that already has transactions. Set `FIREFLY_E2E_KEEP=1` to leave the created objects in place for inspection. Run one live suite at a time: they share the server.
+
 The A1–A7 probe from WP-03 can run against the same instance:
 
 ```sh
@@ -67,10 +89,8 @@ FIREFLY_BASE_URL=$FIREFLY_E2E_URL FIREFLY_API_TOKEN=$FIREFLY_E2E_TOKEN \
 
 | Item | Status |
 |---|---|
-| Emulated Phase 1 E2E (acceptance 2–6) | Passing |
-| Emulated Phase 2 E2E (WP-29) | Passing |
-| Live Phase 2 E2E against Docker | **Pending**, same Docker blocker as Phase 1 |
-| Live Phase 1 E2E against Docker | **Pending.** No Docker on the development Mac. The Linux host that has Docker refused this user access to the socket (`permission denied ... /var/run/docker.sock`). Needs a user in the `docker` group or a CI job (WP-P2) |
-| A1–A7 live verification | **Pending**, same blocker. The fallbacks in `API-NOTES.md` stay in place until the probe runs |
-| `up.sh` token minting (A7) | Written, not yet run. If minting fails, create a token in the web UI of the disposable instance and export it by hand |
+| Emulated Phase 1, 2 and 3 E2E | Passing |
+| Live Phase 1, 2 and 3 E2E | Passing against a disposable Firefly III 6.6.2 (2026-11-22, WP-39): 6/6, 6/6 and 4/4 |
+| A1–A7 live verification | Recorded in `API-NOTES.md`. A6 is still open (the server answers 500), so its fallback stays |
+| `up.sh` token minting (A7) | Fixed for 6.6.2 with `mint.php`; not yet run through `up.sh` end to end on a Docker host |
 | Legacy flow with mode off (acceptance 7) | Covered by the existing hook tests and `seams_test.dart` at the database and settings level. A full UI run (onboarding, add transaction, backup export) on a device is still manual |

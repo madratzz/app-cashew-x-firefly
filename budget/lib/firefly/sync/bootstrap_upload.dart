@@ -1071,8 +1071,18 @@ class _UploadTransport implements FireflyTransport {
   }
 
   @override
-  Future<void> delete(String path, {FireflyQuery query = const {}}) =>
-      throw const FireflyInvalidPayload();
+  Future<void> delete(String path, {FireflyQuery query = const {}}) {
+    // Firefly creates the current period's limit for each new auto budget.
+    // The limit syncer removes it after creating the local limit. Only limits
+    // under budgets created by this upload may be deleted.
+    final limit = RegExp(r'^/budgets/([^/]+)/limits/[^/]+$').firstMatch(path);
+    final budget = limit == null ? null : Uri.decodeComponent(limit.group(1)!);
+    if (budget != null &&
+        (_accepted[_Type.budget]?.contains(budget) ?? false)) {
+      return _transport.delete(path, query: query);
+    }
+    throw const FireflyInvalidPayload();
+  }
 
   @override
   Future<Stream<List<int>>> download(String path) =>

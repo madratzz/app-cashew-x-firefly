@@ -1,4 +1,6 @@
 import 'package:budget/database/tables.dart';
+import 'package:budget/firefly/config/token_store.dart';
+import 'package:budget/firefly/firefly.dart';
 import 'package:budget/firefly/db/split_queries.dart';
 import 'package:budget/firefly/ui/draft.dart';
 import 'package:budget/firefly/ui/pages/splits/split_save.dart';
@@ -9,6 +11,11 @@ import 'package:drift/drift.dart' hide isNull, isNotNull, Column;
 import 'package:flutter_test/flutter_test.dart';
 import 'support.dart';
 
+class _FakeTokens extends TokenStore {
+  @override
+  Future<String?> read() async => 'REDACTED';
+}
+
 void main() {
   late FinanceDatabase db;
   late Transaction bread;
@@ -18,6 +25,9 @@ void main() {
   // in-memory database and clears it before each test.
   setUpAll(() async {
     appStateSettings = await getDefaultPreferences();
+    // The edit keeps child rows because Firefly mode saves update in place.
+    appStateSettings['fireflyMode'] = true;
+    await FireflyMode.init(() => appStateSettings, tokenStore: _FakeTokens());
     db = await seededDatabase();
   });
 

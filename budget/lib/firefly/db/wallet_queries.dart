@@ -102,6 +102,7 @@ extension FireflyWalletQueries on FinanceDatabase {
         .write(const TransactionsCompanion(pairedTransactionFk: Value(null)));
     await (delete(transactions)..where((row) => row.walletFk.equals(walletPk)))
         .go();
+    await deleteOrphanTransactionTags();
     await (delete(accountDetails)
           ..where((row) => row.walletFk.equals(walletPk)))
         .go();

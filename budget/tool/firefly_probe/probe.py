@@ -196,6 +196,8 @@ def piggy_bank(probe, asset):
         "accounts": [{"account_id": asset_id, "current_amount": "0"}],
         "transaction_currency_code": asset["attributes"]["currency_code"],
         "target_amount": "10",
+        # Firefly 6.6.2 StoreRequest requires a start date.
+        "start_date": dt.date.today().isoformat(),
     }
     try:
         piggy = probe.create("/piggy-banks", fields)

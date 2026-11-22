@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:budget/database/tables.dart';
 import 'package:budget/firefly/db/conflict_repository.dart';
 import 'package:budget/firefly/db/liability_queries.dart';
+import 'package:budget/firefly/db/tag_queries.dart';
+import 'package:budget/firefly/db/transaction_queries.dart';
 import 'package:budget/firefly/ui/pages/connection/connection_page.dart';
 import 'package:budget/firefly/ui/settings/connection_controller.dart';
 import 'package:drift/drift.dart' show Value;
@@ -46,9 +48,30 @@ Future<bool> reapplyFireflyConflict(
             .into(db.categories)
             .insertOnConflictUpdate(TransactionCategory.fromJson(json));
       case FireflyEntityType.transaction:
-        await db
-            .into(db.transactions)
-            .insertOnConflictUpdate(Transaction.fromJson(json));
+        final tagPks = json.remove(fireflySnapshotTagPks);
+        final hasTitle = json.containsKey(fireflySnapshotGroupTitle);
+        final title = json.remove(fireflySnapshotGroupTitle);
+        final row = Transaction.fromJson(json);
+        await db.transaction(() async {
+          final groupPk = row.splitGroupFk;
+          if (groupPk != null) {
+            final group = TransactionGroupsCompanion(
+              groupPk: Value(groupPk),
+              title: hasTitle && title is String?
+                  ? Value(title)
+                  : const Value.absent(),
+              dateTimeModified: Value(now()),
+            );
+            await db.into(db.transactionGroups).insertOnConflictUpdate(group);
+          }
+          await db.into(db.transactions).insertOnConflictUpdate(row);
+          if (tagPks is List) {
+            await db.replaceFireflyTransactionTagLinks(
+                row.transactionPk, {for (final pk in tagPks) '$pk'});
+          }
+        });
+      case FireflyEntityType.payeeAccount:
+        await db.into(db.payees).insertOnConflictUpdate(Payee.fromJson(json));
       default:
         return false;
     }

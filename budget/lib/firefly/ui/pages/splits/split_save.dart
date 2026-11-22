@@ -18,27 +18,16 @@ Transaction fireflyKeepStoredFields(Transaction form, Transaction? stored) {
   );
 }
 
-/// Runs the legacy save and keeps the junction rows a replacing insert
-/// cascades away. Returns the legacy row id.
+/// Runs the legacy save with the stored schema 47 fields kept. In Firefly
+/// mode the legacy save updates an existing row in place, so its tag links,
+/// attachments and mappings survive. Returns the legacy row id.
 Future<int?> fireflySaveTransaction(
   FinanceDatabase db,
   Transaction form,
   Transaction? stored,
   Future<int?> Function(Transaction transaction) legacySave,
 ) =>
-    db.transaction(() async {
-      final row = fireflyKeepStoredFields(form, stored);
-      if (stored == null) return legacySave(row);
-      final tags = await (db.select(db.transactionTags)
-            ..where((tag) => tag.transactionFk.equals(stored.transactionPk)))
-          .get();
-      final rowId = await legacySave(row);
-      if (tags.isNotEmpty) {
-        await db.batch((batch) => batch.insertAll(db.transactionTags, tags,
-            mode: InsertMode.insertOrIgnore));
-      }
-      return rowId;
-    });
+    legacySave(fireflyKeepStoredFields(form, stored));
 
 /// Rebases the draft on the just-saved anchor. The anchor row takes every
 /// field from the saved transaction, and new split rows inherit its wallet,

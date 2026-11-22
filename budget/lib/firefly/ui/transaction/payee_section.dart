@@ -10,8 +10,8 @@ Widget fireflyPayeeSection(
     FireflyPayeePicker(draft: draft);
 
 /// Sets draft.payeePk. Withdrawals take expense payees and deposits take
-/// revenue payees; the draft does not carry the direction, so it is chosen
-/// here and defaults to the stored payee's kind.
+/// revenue payees. The picker opens on the kind for draft.income, else on the
+/// stored payee's kind, and can still be switched by hand.
 class FireflyPayeePicker extends StatefulWidget {
   const FireflyPayeePicker({super.key, required this.draft, this.onWrite});
 
@@ -67,7 +67,11 @@ class _FireflyPayeePickerState extends State<FireflyPayeePicker> {
                       _selected = _watchSelected();
                     }),
                   ),
-            onTap: () => _pick(payee?.kind ?? PayeeKind.expense),
+            onTap: () => _pick(switch (widget.draft.income) {
+              true => PayeeKind.revenue,
+              false => PayeeKind.expense,
+              null => payee?.kind ?? PayeeKind.expense,
+            }),
           );
         },
       );

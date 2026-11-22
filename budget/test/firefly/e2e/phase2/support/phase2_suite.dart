@@ -28,6 +28,7 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     {required bool live}) {
   final clock = E2eClock(live: live);
   E2eTarget? target;
+  E2eServerSnapshot? snapshot;
   late E2eDevice device;
   late String checkingId;
   late String shopId;
@@ -37,6 +38,7 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     target = await open(clock);
     if (target == null) return;
     device = E2eDevice(target!, clock);
+    if (live) snapshot = await E2eServerSnapshot.take(target!);
     final existing = await device.admin.transactions.list(limit: 1);
     if (existing.total > 0) {
       throw StateError('The E2E server must start empty. Use a fresh '
@@ -75,6 +77,7 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
 
   tearDownAll(() async {
     if (target == null) return;
+    await snapshot?.restore();
     await device.close();
     await target!.close();
   });
@@ -126,8 +129,7 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
       await meta.write(
           SyncMetaRepository.contributorVersion(contributor.id), '0');
     }
-    final lastFull =
-        await meta.readDate(SyncMetaRepository.lastFullReconcile);
+    final lastFull = await meta.readDate(SyncMetaRepository.lastFullReconcile);
 
     await clock.tick();
     final before = fullListings();
@@ -151,8 +153,7 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     if (!live) expect(fullListings(), again);
   });
 
-  test('budgets with limits and assignments sync in both directions',
-      () async {
+  test('budgets with limits and assignments sync in both directions', () async {
     if (skip()) return;
     await clock.tick();
     final now = clock.now();
@@ -189,8 +190,8 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     await sync();
 
     final budgetId = (await device.remoteId(_budget, local.budgetPk))!;
-    expect((await device.admin.budgets.get(budgetId)).name,
-        'E2E2 Local budget');
+    expect(
+        (await device.admin.budgets.get(budgetId)).name, 'E2E2 Local budget');
     final limits = (await device.admin.budgets.listLimits(budgetId)).items;
     expect(limits.map((limit) => limit.amount), [150]);
     final groupId = (await device.remoteId(_transaction, withdrawal))!;
@@ -224,8 +225,8 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     await clock.tick();
     await sync();
     final remotePk = (await device.localPk(_budget, remote.id))!;
-    expect((await device.db.fireflyBudget(remotePk))!.name,
-        'E2E2 Server budget');
+    expect(
+        (await device.db.fireflyBudget(remotePk))!.name, 'E2E2 Server budget');
     expect(remoteLimit.amount, 60);
     final pulled = await device.db.fireflyBudgetLimits(remotePk);
     expect(pulled.map((limit) => limit.amount), [60]);
@@ -241,6 +242,7 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     final bank = await device.admin.piggyBanks.create({
       'name': 'E2E2 Holiday',
       'target_amount': '500.00',
+      'start_date': formatFireflyDate(clock.now()),
       'transaction_currency_code': 'USD',
       'accounts': [
         {'account_id': checkingId, 'current_amount': '10.00'},
@@ -332,6 +334,8 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     if (skip()) return;
     await clock.tick();
     final first = clock.now().add(const Duration(days: 1));
+    // The weekday after first_date, so first_date itself never occurs.
+    final moment = '${first.weekday % 7 + 1}';
     final recurrence = await device.admin.recurrences.create({
       'type': 'withdrawal',
       'title': 'E2E2 Rent',
@@ -340,7 +344,7 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
       'apply_rules': false,
       'active': true,
       'repetitions': [
-        {'type': 'weekly', 'moment': '7', 'skip': 0, 'weekend': 1},
+        {'type': 'weekly', 'moment': moment, 'skip': 0, 'weekend': 1},
       ],
       'transactions': [
         {
@@ -358,8 +362,9 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     expect(await device.db.fireflyRecurrence(recurrencePk), isNotNull);
 
     await clock.tick();
-    final created = await const RecurrenceSyncer()
-        .trigger(device.context, recurrencePk, date: first);
+    // Without a date the app triggers the server's next occurrence.
+    final created =
+        await const RecurrenceSyncer().trigger(device.context, recurrencePk);
     expect(created, isNotNull);
     final row = await localSplit(created!.id);
     expect(row.name, 'E2E2 Rent');
@@ -373,36 +378,31 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     expect(rows, hasLength(1), reason: 'no local auto-created duplicate');
   });
 
-  test('a rejected repetition moment is kept and reported, not dropped',
-      () async {
+  test('a repetition moment edited on the device reaches the server', () async {
     if (skip()) return;
     await clock.tick();
     final cached = (await device.db.fireflyRecurrence(recurrencePk))!;
-    final repetitions = [
-      for (final repetition
-          in ResourceCacheRepository.decode(cached)['repetitions'] as List)
-        {...(repetition as JsonObject), 'moment': '3'},
-    ];
-    await device.db.saveFireflyRecurrence(
-        {'repetitions': repetitions}, pk: recurrencePk);
+    final before =
+        ResourceCacheRepository.decode(cached)['repetitions'] as List;
+    final edited =
+        '${(before.first as JsonObject)['moment']}' == '3' ? '4' : '3';
+    await device.db.saveFireflyRecurrence({
+      'repetitions': [
+        for (final repetition in before)
+          {...(repetition as JsonObject), 'moment': edited},
+      ],
+    }, pk: recurrencePk);
 
-    final cycle = await device.sync();
-    final mapping =
-        (await device.context.idMap.byLocal(_recurrence, recurrencePk))!;
-    final remoteMoment = (await device.admin.recurrences.get(recurrenceId))
+    final writes = await sync();
+    expect(writes.where((write) => write.method == 'PUT'), hasLength(1));
+    final remote = (await device.admin.recurrences.get(recurrenceId))
         .attributes['repetitions'] as List;
-    if (mapping.state == FireflySyncState.error) {
-      // Firefly 6.6.2 UpdateRequest rejects moments 0 to 10 on PUT. The
-      // error is stored for the editor and the local edit stays in place.
-      expect(mapping.lastError, contains('moment'));
-      expect(cycle.writes.where((write) => write.method == 'PUT'), isNotEmpty);
-      final kept = ResourceCacheRepository.decode(
-          (await device.db.fireflyRecurrence(recurrencePk))!);
-      expect((kept['repetitions'] as List).first['moment'], '3');
-      expect((remoteMoment.first as JsonObject)['moment'], '7');
-    } else {
-      expect(live, isTrue, reason: 'the emulator models the rejection');
-      expect('${(remoteMoment.first as JsonObject)['moment']}', '3');
-    }
+    expect('${(remote.first as JsonObject)['moment']}', edited);
+    expect(
+        (await device.context.idMap.byLocal(_recurrence, recurrencePk))!.state,
+        FireflySyncState.synced);
+
+    await clock.tick();
+    expect(await sync(), isEmpty);
   });
 }

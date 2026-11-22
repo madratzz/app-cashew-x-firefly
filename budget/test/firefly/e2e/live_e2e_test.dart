@@ -1,4 +1,5 @@
 @Tags(['live'])
+@Timeout(Duration(minutes: 30))
 library;
 
 import 'package:flutter_test/flutter_test.dart';
