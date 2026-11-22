@@ -64,6 +64,9 @@ jobs:
       - if: matrix.target == 'windows'
         name: Install SQLite for host tests
         run: scripts/ci/windows-sqlite.sh
+      - if: matrix.target == 'windows'
+        name: Select MSVC 14.38 toolset
+        run: scripts/ci/windows-msvc.sh
       - name: Install pinned Flutter
         run: scripts/ci/install-flutter.sh
       - run: flutter pub get --enforce-lockfile
