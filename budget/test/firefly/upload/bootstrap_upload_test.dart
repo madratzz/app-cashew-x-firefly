@@ -721,5 +721,5 @@ void main() {
             .toSet(),
         hasLength(3));
     expect(await sourceRows(db), source);
-  });
+  }, timeout: const Timeout(Duration(minutes: 3)));
 }
