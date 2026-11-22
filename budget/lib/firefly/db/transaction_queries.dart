@@ -17,7 +17,7 @@ extension FireflyTransactionQueries on FinanceDatabase {
           ..where((row) => row.pairedTransactionFk.isIn(keys)))
         .write(const TransactionsCompanion(pairedTransactionFk: Value(null)));
     await (delete(transactions)..where((row) => row.transactionPk.isIn(keys)))
-        .go();
+        .go();    await deleteOrphanTransactionTags();
   }
 
   Future<TransactionGroup?> fireflyTransactionGroup(String pk) =>
