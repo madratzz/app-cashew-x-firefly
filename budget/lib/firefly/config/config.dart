@@ -10,6 +10,7 @@ class FireflyConfig {
     this.transactionWindowDays = 90,
     this.pageSize = 100,
     this.subcategorySeparator = ' / ',
+    this.metaRoaming = false,
   });
 
   factory FireflyConfig.fromSettings(Map<String, Object?> settings) {
@@ -27,6 +28,7 @@ class FireflyConfig {
       pageSize: pageSize is int && pageSize > 0 ? pageSize : 100,
       subcategorySeparator:
           separator is String && separator.isNotEmpty ? separator : ' / ',
+      metaRoaming: settings[metaRoamingKey] == true,
     );
   }
 
@@ -38,6 +40,7 @@ class FireflyConfig {
   static const transactionWindowDaysKey = 'fireflyTransactionWindowDays';
   static const pageSizeKey = 'fireflyPageSize';
   static const subcategorySeparatorKey = 'fireflySubcategorySeparator';
+  static const metaRoamingKey = 'fireflyMetaRoaming';
 
   final bool mode;
   final String baseUrl;
@@ -47,6 +50,7 @@ class FireflyConfig {
   final int transactionWindowDays;
   final int pageSize;
   final String subcategorySeparator;
+  final bool metaRoaming;
 }
 
 const _allowHttp = kDebugMode && bool.fromEnvironment('FIREFLY_ALLOW_HTTP');

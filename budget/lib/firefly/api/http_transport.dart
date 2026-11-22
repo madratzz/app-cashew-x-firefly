@@ -30,6 +30,9 @@ class HttpFireflyTransport implements FireflyTransport {
   static const _jsonApi = 'application/vnd.api+json';
   static const _json = 'application/json';
   static const _binary = 'application/octet-stream';
+  // Firefly III 6.6.2 answers a download that accepts only octet-stream with
+  // 406 (BadHttpHeaderException); its Accept check always allows */*.
+  static const _binaryAccept = 'application/octet-stream, */*';
   static const _maxAttempts = 5;
   static const _maxGets = 4;
 
@@ -107,7 +110,7 @@ class HttpFireflyTransport implements FireflyTransport {
         try {
           final request = http.Request('GET', uri);
           final response = await _network(
-            () => _send(attempt, request, token, accept: _binary),
+            () => _send(attempt, request, token, accept: _binaryAccept),
           ).timeout(_requestTimeout, onTimeout: _timedOut);
           return _downloadStream(response.stream, attempt);
         } catch (_) {

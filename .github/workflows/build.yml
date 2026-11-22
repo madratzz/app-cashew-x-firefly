@@ -2,6 +2,7 @@ name: Build
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       mode:
@@ -38,6 +39,7 @@ env:
 
 jobs:
   build:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -112,6 +114,7 @@ jobs:
           if-no-files-found: error
 
   keychain-smoke:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: keychain-${{ matrix.target }}
     runs-on: macos-15
     strategy:

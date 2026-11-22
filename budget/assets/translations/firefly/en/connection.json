@@ -75,5 +75,7 @@
   "firefly-conflicts-reapplied": "Local version re-applied",
   "firefly-conflicts-reapply-unsupported": "This kind of record cannot be re-applied",
   "firefly-onboarding-connect": "Connect to Firefly III",
-  "firefly-onboarding-connect-description": "Use your self-hosted Firefly III server instead of Google sign-in"
+  "firefly-onboarding-connect-description": "Use your self-hosted Firefly III server",
+  "firefly-connection-meta-roaming": "Sync colours, icons and order across devices",
+  "firefly-connection-meta-roaming-description": "Stores Cashew-only display settings as Firefly III preferences"
 }

@@ -1,272 +1,79 @@
-<h1 align="center" style="font-size:28px; line-height:1"><b>Cashew</b></h1>
-
-
-<div align="center">
-  <a href="https://cashewapp.web.app/">
-    <img alt="Icon" src="promotional/icons/icon.png" width="150px" >
-  </a>
-</div>
-
-
-<br />
-
-<div align="center">
-  <a href="https://apps.apple.com/us/app/cashew-expense-budget-tracker/id6463662930">
-    <img alt="iOS App Store Badge" src="promotional/store-banners/app-store-badge.png" height="60px">
-  </a>
-  <a href="https://play.google.com/store/apps/details?id=com.budget.tracker_app">
-    <img alt="Google Play Badge" src="promotional/store-banners/google-play-badge.png" height="60px">
-  </a>
-  <a href="https://github.com/jameskokoska/Cashew/releases/">
-    <img alt="GitHub Badge" src="promotional/store-banners/github-badge.png" height="60px">
-  </a>
-  <a href="https://budget-track.web.app/">
-    <img alt="PWA Badge" src="promotional/store-banners/pwa-badge.png" height="60px">
-  </a>
-</div>
-
-<h3 align="center" style="font-size:28px; line-height:1">
-  <a href="https://github.com/jameskokoska/Cashew/issues/725">🚀 Cashew Beta Testing</a>
-</h3>
-
----
-
-<br />
-
-<a href="https://cashewapp.web.app/">
-  <div align="center">
-    <img width="95%" src="promotional/GitHub/SocialPreviewGitHub.png" alt="Promo banner">
-  </div>
-</a>
-
-<br />
-
-Cashew is a full-fledged, feature-rich application designed to empower users in managing their finances effectively. Built using Flutter - with Drift's SQL package, and Firebase - this app offers a seamless and intuitive user experience across various devices. Development started in September 2021.
-
----
-
-## Features
-
-<a href="https://www.youtube.com/watch?v=Oar9pkc7BSc&t=235s">
-  <div align="center">
-    <img width="80%" src="promotional/youtube-promo/thumbnail-oss.png" alt="Review Video">
-  </div>
-</a>
-<p align="center">
-  Cashew was featured on <a href="https://www.youtube.com/watch?v=Oar9pkc7BSc&t=235s">YouTube</a> on 'The Best Free and Open Source Apps in 2024!' (and in the thumbnail!)
-</p>
-
-<br />
-
-<a href="https://www.youtube.com/watch?v=NYZd7IKn1oY&t=536s">
-  <div align="center">
-    <img width="80%" src="promotional/youtube-promo/thumbnail-year-best.png" alt="Review Video">
-  </div>
-</a>
-<p align="center">
-  Cashew was featured on <a href="https://www.youtube.com/watch?v=NYZd7IKn1oY&t=536s">YouTube</a> on 'The Best Apps of 2023!'
-</p>
-
-<br>
-
-<a href="https://www.youtube.com/watch?v=2MwWmqcn--s&t=261s">
-  <div align="center">
-    <img width="80%" src="promotional/youtube-promo/thumbnail.png" alt="Review Video">
-  </div>
-</a>
-<p align="center">
-  Cashew was featured on <a href="https://www.youtube.com/watch?v=2MwWmqcn--s&t=261s">YouTube</a> on 'Top Android Apps! (November 2023)'
-</p>
-
-<br>
-
-<div align="center">
-  <img width="80%" src="promotional/play-store-feature/play-store-feature.png" alt="Play Store Feature">
-</div>
-<p align="center">
-  Cashew was featured on <a href="https://play.google.com/store/apps/editorial?id=mc_apps_new_on_play_fcp">Google Play's Editorial 'New Apps We Love'</a> (November 2023)!
-</p>
-
-<br>
-
-<a href="https://github.com/nyas1/Material-You-app-list?tab=readme-ov-file#-economy:~:text=MDY%20Celenganku-,MDY%20Cashew,-MDY%20Allowance%20FOSS">
-  <div align="center">
-    <img width="80%" src="promotional/material-apps-feature/material-apps-feature.png" alt="Material Apps List Feature">
-  </div>
-</a>
-<p align="center">
-  Cashew was featured in the <a href="https://github.com/nyas1/Material-You-app-list?tab=readme-ov-file#-economy:~:text=MDY%20Celenganku-,MDY%20Cashew,-MDY%20Allowance%20FOSS">Material You Apps List</a>!
-</p>
-
-## Release
-
-Check out the [official website](https://cashewapp.web.app/)!
-
-This application is available on the [App Store](https://apps.apple.com/us/app/cashew-expense-budget-tracker/id6463662930), [Google Play](https://play.google.com/store/apps/details?id=com.budget.tracker_app), [GitHub](https://github.com/jameskokoska/Cashew/releases/) and as a [Web App (PWA)](https://budget-track.web.app/).
-
-### Changelog
-
-Changes and progress about development is all heavily documented in GitHub [commits](https://github.com/jameskokoska/Cashew/commits/main) and in the [changelog](https://github.com/jameskokoska/Cashew/blob/main/budget/lib/widgets/showChangelog.dart)
-
-## Key Features
-
-### 💸 Budget Management
-
-- Custom Budgets and Time Periods: Set up personalized budgets with flexible time periods, such as monthly, weekly, daily, or any custom time period that suits your financial planning needs. A custom time period is useful if you plan on setting a one-time travel budget!
-- Added Budgets: Selectively add transactions to specific budgets, allowing you to focus on specific expense categories.
-- Category Spending Limits per Budget: Set limits for each category within a budget, ensuring responsible spending.
-- Past Budget History Viewing: Analyze your spending habits over time by accessing past budget history, enabling comparison and tracking of financial progress.
-- Goals: Create spending and saving goals and put transactions towards different purchases or savings. Track your progress towards achieving your financial goals.
-
-### 💰 Transaction Management
-
-- Support for Different Transaction Types: Categorize transactions effectively based on types such as upcoming, subscription, repeating, debts (borrowed), and credit (lent). Each type behaves in certain ways in the interface. Pay your upcoming transactions when you're ready, or mark your lent out transactions as collected.
-- Custom Categories: Create personalized categories to organize transactions according to your unique spending habits. Search through multiple icons and select the default option as expenses or income when adding transactions.
-- Custom Titles: Automatically assign transactions with the same name to specific categories, saving time and ensuring consistency. These titles are stored in memory and popup when you add another transaction with a similar name.
-- Search and Filters: Easily search and filter transactions based on various criteria such as date, category, amount, or custom tags, enabling quick access to information.
-- Easy Editing: Long-press and swipe to select multiple budgets, edit accordingly as needed or delete multiple at once.
-
-### 💱 Financial Flexibility
-
-- Multiple Currencies and Accounts: Manage finances across different currencies and accounts with up-to-date conversion rates for accurate calculations and effortless currency conversions. The interface shows the original amount added and the converted amount to the selected account.
-- Switch Accounts and Currencies with Ease: On the homepage, easily select a different account and currency and everything will be converted automatically in an instant.
-
-### 🔒 Enhanced Security and Accessibility
-
-- Biometric Lock: Secure budget data using biometric authentication, adding an extra layer of privacy.
-- Google Login: Conveniently log in to the app using your Google account, ensuring a streamlined and hassle-free authentication process.
-
-### 🎨 User Experience and Design
-
-- Material You Design: Enjoy a visually appealing and modern interface, following the principles of Material You design for a delightful user experience.
-- Custom Accent Color: Personalize the app by selecting a custom accent color that suits your style, or follow that of the system.
-- Light and Dark Mode: Seamlessly switch between light and dark themes to optimize visibility and reduce eye strain.
-- Customizable Home Screen: Tailor the home screen layout and widgets to display the financial information that matters most to you, providing a personalized and efficient dashboard.
-- Detailed Graph Visuals: Gain valuable insights into spending patterns through detailed and interactive graphs, visualizing financial data at a glance.
-- Beautiful Adaptive UI: A responsive user interface that adapts flawlessly to both web and mobile platforms, providing an immersive and consistent user experience across devices.
-
-### ☁ Backup and Syncing
-
-- Cross-Device Sync: Keep budget data synchronized across all devices, ensuring access to financial information wherever you go.
-- Google Drive Backup: Safeguard budget data by utilizing Google Drive's backup functionality, allowing easy restoration of data if needed.
-
-### 💿 Smart Automation
-
-- Notifications: Stay informed about important financial events and receive timely reminders for budget goals, transactions, and upcoming due dates.
-- Import CSV Files: Seamlessly import financial data by uploading CSV files, facilitating a smooth transition from other applications or platforms.
-- Import Google Sheets: Seamlessly import Google Sheets tables, quickly importing many transactions from a spreadsheet.
-- App Links: Automatically create transactions with pre-filled data using app linking (documentation below)
-
-## Automation
-
-See the `Automation` section on the FAQ website for information on how to add transactions automatically: https://cashewapp.web.app/faq.html#automation
-
-## Bundled Packages
-
-This repository contains, bundled in, modified versions of the discontinued packages listed below. They can be found in the folder `/budget/packages`
-
-- https://pub.dev/packages/implicitly_animated_reorderable_list
-- https://pub.dev/packages/sliding_sheet
-
-## Translations
-
-The translations are available here: https://docs.google.com/spreadsheets/d/1QQqt28cmrby6JqxLm-oxUXCuM3alniLJ6IRhcPJDOtk/edit?usp=sharing. If you would like to help translate, please reach out on email: dapperappdeveloper@gmail.com
-
-### To Update Translations
-
-1. Run `budget\assets\translations\generate-translations.py`
-2. Restart the application
-
-## Developer Notes
-
-### Pull Requests and Contributions
-
-Unfortunately, I am currently not accepting contributions due to licensing and credits. Since this application turns some profits, I want to avoid any muddy water when it comes to compensation for contributions. You are free to submit an [issue](https://github.com/jameskokoska/Cashew/issues) and I can consider it!
-
-### Android Release
-
-- To build an app-bundle Android release, run `flutter build appbundle --release`
-
-Note: required Android SDK.
-
-### iOS Release
-
-- To build an IPA iOS release, run `flutter build ipa`
-
-Note: requires MacOS.
-
-### Firebase Deployment
-
-- To deploy to firebase, run `firebase deploy`
-
-Note: required Firebase.
-
-### GitHub release
-
-- Create a tag for the current version specified in `pubspec.yaml`
-- `git tag <version>`
-- Push the tag
-- `git push origin <version>`
-- Create the release and upload binaries
-- https://github.com/jameskokoska/Cashew/releases/new
-
-### Scripts
-
-`deploy_and_build_windows.bat`
-
-- Deploy to Firebase and build the apk and appbundle
-
-`open_release_builds.bat`
-
-- Opens the location of the built apk and appbundle
-
-`update_translations.bat`
-
-- Downloads the latest version of Cashew translations. Runs `budget\assets\translations\generate-translations.py`
-
-### Develop Wirelessly on Android
-
-- `adb tcpip 5555`
-- `adb connect <IP>`
-- Get the phone's IP by going to `About Phone` > `Status Information` > `IP Address`
-
-### Migrate Database
-
-1. Make any database changes to the schema and tables
-2. Bump the schema version
-   - Change `int schemaVersionGlobal = ...+1` in `tables.dart`
-3. Make sure you are in application root directory
-   - `cd .\budget\`
-4. Generate database code
-   - Run `dart run build_runner build`
-5. Export the new schema
-   - Generate schema dump for the newly created schema
-   - Replace `[schemaVersion]` in the command below with the value of `schemaVersionGlobal`
-   - Run `dart run drift_dev schema dump lib\database\tables.dart drift_schemas//drift_schema_v[schemaVersion].json`
-   - Read more: https://drift.simonbinder.eu/docs/advanced-features/migrations/#exporting-the-schema
-6. Generate step-by-step migrations
-   - Run `dart run drift_dev schema steps drift_schemas/ lib\database\schema_versions.dart`
-7. Implement migration strategy
-   - Edit `await stepByStep(...)` function in `tables.dart` and add the migration strategy for the new version migration
-
-### Get Platform
-
-- Use `getPlatform()` from `functions.dart`
-- Since `Platform` is not supported on web, we must create a wrapper and always use this to determine the current platform
-
-### Push Route
-
-- If we want to navigate to a new page, stick to `pushRoute(context, page)` function from `functions.dart`
-- It handles the platform routing and `PageRouteBuilder`
-
-### Wallets vs. Accounts
-
-- `Wallets` have been been renamed to `Accounts` on the front-end but internally, the name `Wallet` is still used.
-
-### Objectives vs. Goals
-
-- `Objectives` have been been renamed to `Goals` on the front-end but internally, the name `Objectives` is still used.
-
-### Long Term Loans
-
-- Long term loans create a goal. However, the goals total is not used. Instead the total of the goal is calculated by totalling the proper polarity of transactions of the opposite type. For example, if it was a loan of 100$ lent out, the initial transaction would be 100$ of negative polarity (expense) and that would be the total of the goal. When a payment is made, it is made in the opposite (positive) polarity (income) and added to the total 'paid back'. We can easily find how much is remaining by taking the difference (or the addition including polarities).
+# Cashew × Firefly III
+
+A fork of [Cashew](https://github.com/jameskokoska/Cashew), the budget and expense tracker by James Kokoska, that syncs with a self-hosted [Firefly III](https://www.firefly-iii.org/) server. Your data lives in Cashew's local database on the device and in your own Firefly III; nothing goes to Google or Firebase.
+
+- **Firefly mode** is opt-in. With it off, the app behaves like upstream Cashew without the Google account features (Google sign-in, Drive backup and Firebase were removed in this fork).
+- **Supported server:** Firefly III **6.6.2** (API v1). Other 6.x versions may work but are not tested.
+- **Platforms:** Android, iOS, macOS, Linux and Windows. The web build still runs, but Firefly mode is unavailable there (browser CORS and no safe place to keep the token).
+
+## Connect to Firefly III
+
+1. In Firefly III open **Options → Profile → OAuth**, and under **Personal access tokens** choose **Create new token**. Give it a name such as `Cashew on my phone` and copy the token. Firefly shows it only once.
+2. In Cashew open the **Firefly III connection** page from Settings (or pick **Connect to Firefly III** during onboarding).
+3. Enter the server URL, for example `https://firefly.example.com`. Leave out `/api`; the app adds it. HTTPS is required.
+4. Paste the personal access token and tap **Test connection**, then **Connect**.
+5. Turn on **Firefly III mode**. On the first connection you choose whether to upload what is already on the device or replace it with the server's data. Replacing writes a backup of the local database first.
+
+The token is stored only in the platform's secure store (Keychain on iOS and macOS, Keystore-backed storage on Android, libsecret on Linux, the Windows credential store). It is never written to settings, backups, exports or logs. On Linux without a secret service the token is kept for the session only and you are asked again on the next launch.
+
+Sync runs on launch, every 15 minutes while the app is in the foreground, shortly after local changes, and from pull-to-refresh. Edits made on both sides keep the server version; the local version is kept on the connection page under **Conflicts**, where it can be re-applied. **Sync colours, icons and order across devices** (off by default) stores Cashew-only display settings as Firefly III preferences so other Cashew devices pick them up.
+
+## What syncs
+
+| Firefly resource | Cashew side | Field mapping (Firefly ↔ Cashew) | Local-only, never pushed | Notes |
+|---|---|---|---|---|
+| Asset account (`type=asset`) | `Wallets`, `AccountDetails` | `name` ↔ `name`; `currency_code` ↔ `currency` (case converted); `currency_decimal_places` → `decimals`; `order` ↔ `order`; `active` ↔ `!archived`; `created_at` → `dateCreated`; `current_balance` → `AccountDetails.serverBalance` | `colour`, `iconName`, `currencyFormat`, `homePageWidgetDisplay` | Create sends `type: asset`, `account_role: defaultAsset`. The server's first default asset account is mapped onto local wallet `"0"` so legacy defaults keep working |
+| Liability account (`type=liability`) | `Wallets` with `accountKind = liability`, `AccountDetails` | As asset plus `liability_type`, `liability_direction`, `interest`, `interest_period` | Same as asset | Shown in a separate liabilities section. Cashew loan objectives are not mapped |
+| Expense and revenue accounts | `Payees` | `name` ↔ `name`; `type` ↔ `kind`; `active`, `notes`, `iban` | — | Withdrawal destination or deposit source ↔ `Transactions.payeeFk` |
+| Category | `Categories` (main) | `name` ↔ `name` | `colour`, `iconName`, `emojiIconName`, `order`, `income`, `methodAdded` | New remote categories get an icon from the existing name heuristic. Subcategory: a Firefly category named `Parent / Child` whose parent exists becomes a Cashew subcategory, and a Cashew subcategory is pushed under that name. Separator is a setting (decision D1). Category `"0"` is never pushed |
+| Transaction group with one withdrawal split | `Transactions` | `description` ↔ `name` (falls back to the category name when empty); `amount` ↔ `-abs(amount)`, `income = false`; `source_id` ↔ `walletFk`; `date` ↔ `dateCreated`; `notes` ↔ `note`; `category_id` ↔ `categoryFk` and `subCategoryFk`; `reconciled` ↔ `reconciled` | `budgetFksExclude`, `methodAdded`, `upcomingTransactionNotification`, `originalDateDue`, `createdAnotherFutureTransaction`, `skipPaid`, all `shared*` columns | Text longer than Cashew's limits (name 250, note 500) is truncated on pull and that field is marked lossy so it is not pushed back unless edited |
+| Deposit split | `Transactions` | As withdrawal with `amount` ↔ `+abs(amount)`, `income = true`, `destination_id` ↔ `walletFk` | Same | |
+| Transfer split | Two `Transactions` rows in category `"0"` linked by `pairedTransactionFk` | Out row: `source_id` ↔ `walletFk`, `-amount`. In row: `destination_id` ↔ `walletFk`, `+foreign_amount` if currencies differ, else `+amount` | Same | Both rows map to the same remote split with different `remoteRole` |
+| `opening balance`, `reconciliation` splits | `Transactions` row in category `"0"` with `fireflyType` set | Amount and wallet as above | Same | Read-only in the UI. Local unpaired balance corrections are pushed per assumption A6 |
+| Group with several splits | One `Transactions` row per split, shared `splitGroupFk`; `group_title` ↔ `TransactionGroups.title` | Per split as above; `order` ↔ `splitOrder` | Same | Imported and editable row by row from Phase 1. Creating and restructuring splits arrives in Phase 3 |
+| Budget | `Budgets` with `addedTransactionsOnly = true` | `name` ↔ `name`; `active` ↔ `!archived`; `auto_budget_amount` ↔ `amount`; `auto_budget_period` ↔ `reoccurrence` and `periodLength` (`quarterly` = 3 months, `half-year` = 6 months) | `colour`, `pinned`, `order`, `income`, filters, wallet and category lists, all `shared*` columns | Split `budget_id` ↔ `Transactions.sharedReferenceBudgetPk` through a contributor. Budgets without an auto-budget use a monthly period |
+| Budget limit | `BudgetLimits` | `start`, `end`, `amount`, `currency_code`, `notes` | — | The limit covering the current period supplies `Budgets.amount`; older limits feed the past-periods page. `CategoryBudgetLimits` stays local-only |
+| Available budget | `FireflyResourceCache` | Read-only | — | Displayed, not editable |
+| Piggy bank | `Objectives` (`type = goal`) plus cached state | `name` ↔ `name`; `target_amount` ↔ `amount`; `target_date` ↔ `endDate`; `start_date` ↔ `dateCreated`; first `accounts[].id` ↔ `walletFk`; `current_amount` → cached state | `colour`, `iconName`, `emojiIconName`, `income`, `pinned`, `order`, `archived` | In Firefly mode progress shows the server's `current_amount`. "Add or remove money" sends a `PUT` with the new amount. Events are pulled for history, and an event that names a journal sets `Transactions.objectiveFk` |
+| Bill | `FireflyResourceCache`; link via `Transactions.billFk` | All bill fields in JSON | — | Shown on the subscriptions page in Firefly mode. Read `subscription_id ?? bill_id`; write `bill_id` |
+| Recurrence | `FireflyResourceCache` | All recurrence fields in JSON | — | The server creates the transactions. In Firefly mode Cashew does not auto-create the next occurrence; upcoming entries are derived from `repetitions[].occurrences` |
+| Tag | `Tags`, `TransactionTags` | `tag` ↔ `name`; `description`; `date`; split `tags[]` ↔ junction rows | — | |
+| Currency | `FireflyResourceCache`; `Transactions.foreignAmount`, `foreignCurrency` | `code` ↔ Cashew lower-case code; `foreign_amount`, `foreign_currency_code` on splits | — | A wallet's currency is enabled on the server before its account is created |
+| Exchange rate | Existing `cachedCurrencyExchange` setting | `rate` per pair and date | — | Optional source for Cashew's rates in Firefly mode |
+| Attachment | `Attachments` plus a file in the app support directory | `filename`, `title`, `mime`, `size`, `hash`; `attachable_id` = journal id | `localPath`, `uploadState` | Replaces the Drive upload in Firefly mode |
+| Rule, rule group | `FireflyResourceCache` | Whole object as JSON | — | Edited online; cached for offline viewing |
+| Object group, transaction link, link type | `FireflyResourceCache` | Whole object as JSON | — | |
+| Preference `cashew.*` | Local-only attributes of wallets, categories, budgets, objectives | JSON blob keyed by remote id | — | Optional roaming of colours, icons and ordering between Cashew devices |
+
+### Cashew features with no Firefly counterpart
+
+| Feature | Behaviour | Decision |
+|---|---|---|
+| Google Drive backup and device sync | Disabled and hidden. Local file export and import stay | Brief |
+| Shared budgets (Firebase), Gmail scanning | Hidden together with the Google account section | D4 |
+| Associated titles, scanner templates, per-category budget limits | Stay local-only | — |
+| Unpaid upcoming, subscription and repetitive transactions | Stay local-only until marked paid, then pushed | D2 |
+| Lent and borrowed transaction types, loan objectives | Creation hidden. Existing rows are not pushed | D3 |
+
+## Downloads
+
+Tagged releases on the [Releases page](https://github.com/madratzz/app-cashew-x-firefly/releases) carry five builds: an Android APK and AAB, an unsigned iOS IPA, an ad-hoc signed macOS app, a Linux bundle and a Windows zip. See [docs/release.md](docs/release.md) for what each contains and how signing works.
+
+## Building from source
+
+The app is in `budget/`. Flutter is pinned in `budget/.fvmrc` (3.19.6); use [FVM](https://fvm.app/).
+
+```sh
+cd budget
+fvm flutter pub get --enforce-lockfile
+fvm flutter run            # pick a device or desktop target
+fvm flutter test           # unit, widget and emulated end-to-end tests
+```
+
+Linux builds need `clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev libjsoncpp-dev libsqlite3-dev`.
+
+Testing, including the live end-to-end suites against a disposable Firefly III in Docker, is described in [docs/firefly/testing.md](docs/firefly/testing.md). CI and releases are described in [docs/release.md](docs/release.md). The original Cashew README, with its developer notes, is kept at [docs/upstream-cashew-README.md](docs/upstream-cashew-README.md).
+
+## Licence and credit
+
+Cashew is © James Kokoska and contributors and is licensed under the [GNU General Public License v3.0](LICENSE). This fork keeps that licence; all changes are GPL-3.0 too. It is not affiliated with or endorsed by the Cashew or Firefly III projects. Firefly III is © James Cole and contributors.

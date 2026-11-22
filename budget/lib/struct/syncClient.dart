@@ -46,6 +46,7 @@ Future<SyncScheduler?> fireflySchedulerIfEnabled() async {
     config.transactionWindowDays,
     config.pageSize,
     config.subcategorySeparator,
+    config.metaRoaming,
   ].join("|");
   if (fireflyScheduler != null &&
       (!FireflyMode.enabled || configKey != _fireflySchedulerConfig)) {

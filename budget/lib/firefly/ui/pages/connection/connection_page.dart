@@ -409,6 +409,20 @@ class FireflyConnectionPageState extends State<FireflyConnectionPage> {
               ),
               if (FireflyMode.enabled) ...[
                 fireflySyncStatus(context),
+                SwitchListTile(
+                  key: const ValueKey('firefly-meta-roaming'),
+                  title: Text('firefly-connection-meta-roaming'.tr()),
+                  subtitle: Text(
+                      'firefly-connection-meta-roaming-description'.tr()),
+                  value: config.metaRoaming,
+                  onChanged: _busy
+                      ? null
+                      : (value) async {
+                          await _writeAppSetting(
+                              FireflyConfig.metaRoamingKey, value);
+                          if (mounted) setState(() {});
+                        },
+                ),
                 ListTile(
                   leading: const Icon(Icons.sync_rounded),
                   title: Text('firefly-connection-full-resync'.tr()),

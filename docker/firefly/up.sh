@@ -19,7 +19,8 @@ password="$(rand 24)"
 chmod 644 mint.php
 compose cp mint.php app:/tmp/cashew-mint.php >&2
 token="$(compose exec -T app php /tmp/cashew-mint.php "$email" "$password" | tail -n 1)"
-compose exec -T app rm -f /tmp/cashew-mint.php >&2
+# docker cp leaves the file owned by the host user, so remove it as root.
+compose exec -T -u root app rm -f /tmp/cashew-mint.php >&2
 # Creates the new user's default user group and repairs related rows.
 compose exec -T app php artisan firefly-iii:correct-database >&2
 [ -n "$token" ] || { echo "token creation failed (A7)" >&2; exit 1; }
