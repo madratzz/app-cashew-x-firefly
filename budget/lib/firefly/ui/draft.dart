@@ -1,7 +1,9 @@
 import 'package:budget/database/tables.dart';
 import 'package:budget/firefly/db/attachment_queries.dart';
 import 'package:budget/firefly/db/split_queries.dart';
+import 'package:budget/struct/syncClient.dart';
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 
 class FireflyTransactionDraft {
   FireflyTransactionDraft(this.db);
@@ -27,6 +29,7 @@ class FireflyTransactionDraft {
     sharedReferenceBudgetPk: Value(null),
   );
   Set<String> _loadedTags = {};
+  List<Attachment> _loadedAttachments = [];
 
   Future<void> load(String transactionPk) async {
     final row = await _transaction(transactionPk).getSingleOrNull();
@@ -47,6 +50,7 @@ class FireflyTransactionDraft {
     splits = groupPk == null ? [] : await db.fireflyGroupSplits(groupPk);
     splitTitle = groupPk == null ? null : await db.fireflyGroupTitle(groupPk);
     attachments = await db.fireflyTransactionAttachments(transactionPk);
+    _loadedAttachments = [...attachments];
   }
 
   /// Runs after the legacy transaction save. Untouched fields stay as stored.
@@ -83,10 +87,15 @@ class FireflyTransactionDraft {
         });
       }
       await db.persistFireflyGroupDraft(transactionPk, splits, splitTitle);
-      await db.persistFireflyAttachmentDraft(transactionPk, attachments);
+      await db.persistFireflyAttachmentDraft(transactionPk, attachments,
+          baseline: _loadedAttachments);
     });
+    final editedAttachments = !listEquals(attachments, _loadedAttachments);
     _loaded = _fields;
     _loadedTags = {...tagPks};
+    _loadedAttachments = [...attachments];
+    // Attachment rows are not watched by the legacy change listener.
+    if (editedAttachments) fireflyLocalWrite();
   }
 
   TransactionsCompanion get _fields => TransactionsCompanion(
