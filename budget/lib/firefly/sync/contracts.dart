@@ -107,4 +107,19 @@ abstract class TransactionContributor {
   /// Adds owned fields to the outgoing writable split map.
   Future<void> push(
       SyncContext context, Transaction transaction, JsonObject split) async {}
+
+  /// Adds owned fields to the hash of a local row or a projected remote row.
+  /// Remote fields can be used directly for relationships stored separately.
+  Future<void> contributeHash(
+    SyncContext context,
+    Transaction row,
+    JsonObject fields, {
+    FireflyTransaction? group,
+    FireflyTransactionSplit? split,
+  }) =>
+      push(context, row, fields);
+
+  /// Adds owned fields to a transaction group create or update body.
+  Future<void> pushGroup(
+      SyncContext context, TransactionGroup group, JsonObject fields) async {}
 }

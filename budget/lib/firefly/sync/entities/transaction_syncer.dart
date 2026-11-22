@@ -492,7 +492,7 @@ class _TransactionCycle {
           remoteId: group.id,
           remoteSubId: _journal(split),
           remoteUpdatedAt: Value(group.updatedAt),
-          syncedHash: Value(await _hash(entry.row)),
+          syncedHash: Value(await _hash(entry.row, group: group, split: split)),
           lossyFields: Value(lossy.isEmpty ? null : jsonEncode(lossy)),
           state: map.state == FireflySyncState.pendingDelete || local == null
               ? FireflySyncState.pendingDelete
@@ -516,6 +516,7 @@ class _TransactionCycle {
     for (final entry in updates) {
       decisions.add(await _pullDecision(
         group,
+        split,
         entry,
         refreshContributors: refreshContributors && !pendingDelete,
         preserveDirty: preserveDirty,
@@ -530,7 +531,7 @@ class _TransactionCycle {
         final entry = updates[index];
         await idMap.put(entry.mapping!.copyWith(
           remoteUpdatedAt: Value(group.updatedAt),
-          syncedHash: Value(await _hash(entry.row)),
+          syncedHash: Value(await _hash(entry.row, group: group, split: split)),
           lossyFields: Value(lossy.isEmpty ? null : jsonEncode(lossy)),
         ));
       }
@@ -604,6 +605,7 @@ class _TransactionCycle {
 
   Future<ConflictDecision> _pullDecision(
     FireflyTransaction group,
+    FireflyTransactionSplit split,
     _RemoteRow entry, {
     required bool refreshContributors,
     required bool preserveDirty,
@@ -620,7 +622,7 @@ class _TransactionCycle {
         _second(incomingAt).isBefore(previousAt)) {
       return ConflictDecision.none;
     }
-    final incoming = await _hash(entry.row);
+    final incoming = await _hash(entry.row, group: group, split: split);
     final localHash = local == null ? null : await _hash(local);
     final rejected = mapping.state == FireflySyncState.error;
     final sameRemoteVersion = _secondOrNull(incomingAt) == previousAt;
@@ -1216,10 +1218,15 @@ class _TransactionCycle {
     }
   }
 
-  Future<String> _hash(Transaction row) async {
+  Future<String> _hash(
+    Transaction row, {
+    FireflyTransaction? group,
+    FireflyTransactionSplit? split,
+  }) async {
     final fields = <String, Object?>{};
     for (final contributor in transactionContributors) {
-      await contributor.push(context, row, fields);
+      await contributor.contributeHash(context, row, fields,
+          group: group, split: split);
     }
     return syncedFieldsHash({
       'name': row.name.trim(),
