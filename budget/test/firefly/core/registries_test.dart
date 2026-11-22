@@ -69,7 +69,8 @@ void main() {
     final split = <String, Object?>{'description': 'Sample'};
     for (final contributor in transactionContributors) {
       expect(ids.add(contributor.id), isTrue);
-      expect(contributor.version, contributor.id == 'budget' ? 1 : 0);
+      expect(contributor.version,
+          const {'budget', 'piggyBank'}.contains(contributor.id) ? 1 : 0);
       await contributor.pull(
         context,
         const FireflyTransaction(id: '0'),
