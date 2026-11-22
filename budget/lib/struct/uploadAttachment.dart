@@ -14,6 +14,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 
 Future<String?> getPhotoAndUpload({required ImageSource source}) async {
+  // Drive is the only attachment store outside Firefly mode (WP-42)
+  if (!PlatformCapabilities.googleDriveAvailable) return null;
   if (source == ImageSource.camera && !PlatformCapabilities.supportsCamera) {
     return null;
   }
@@ -59,6 +61,7 @@ Future<String?> getPhotoAndUpload({required ImageSource source}) async {
 }
 
 Future<String?> getFileAndUpload() async {
+  if (!PlatformCapabilities.googleDriveAvailable) return null;
   dynamic result = await openLoadingPopupTryCatch(() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles();
     if (result == null) throw ("no-file-selected".tr());

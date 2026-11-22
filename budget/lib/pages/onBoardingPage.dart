@@ -24,6 +24,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:budget/functions.dart';
+import 'package:budget/platform/capabilities.dart';
 import 'package:budget/database/initializeDefaultDatabase.dart';
 
 import 'package:budget/widgets/pageIndicator.dart';
@@ -454,129 +455,7 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
                   ),
                 )
               : SizedBox.shrink(),
-          getPlatform() == PlatformOS.isIOS
-              ? SizedBox.shrink()
-              : SettingsContainerOutlined(
-                  onTap: () async {
-                    loadingIndeterminateKey.currentState?.setVisibility(true);
-                    openLoadingPopupTryCatch(
-                      () async {
-                        // Can maybe use this function, but on web first login does not sync...
-                        // Let's just use the functionality below this
-                        // await signInAndSync(context, next: () {});
-
-                        await signInGoogle(
-                          context: context,
-                          waitForCompletion: false,
-                          next: () {},
-                        );
-                        if (appStateSettings["username"] == "" &&
-                            googleUser != null) {
-                          updateSettings(
-                              "username", googleUser?.displayName ?? "",
-                              pagesNeedingRefresh: [0],
-                              updateGlobalState: false);
-                        }
-                        // If user has sync backups, but no real backups it will show up here
-                        // For now disable restoring of a backup popup, the sync backups will be restored automatically using the function call below
-                        // var result;
-                        // List<drive.File>? files = (await getDriveFiles()).$2;
-                        // if ((files?.length ?? 0) > 0) {
-                        //   result = await openPopup(
-                        //     context,
-                        //     icon: appStateSettings["outlinedIcons"] ? Icons.cloud_sync_outlined : Icons.cloud_sync_rounded,
-                        //     title: "backup-found".tr(),
-                        //     description: "backup-found-description".tr(),
-                        //     onSubmit: () {
-                        //       popRoute(context, true);
-                        //     },
-                        //     onCancel: () {
-                        //       popRoute(context, false);
-                        //     },
-                        //     onSubmitLabel: "restore".tr(),
-                        //     onCancelLabel: "cancel".tr(),
-                        //   );
-                        // }
-                        // if (result == true) {
-                        //   chooseBackup(context, hideDownloadButton: true);
-                        // } else if (result == false && googleUser != null) {
-                        //   openLoadingPopup(context);
-                        //   // set this to true so cloud functions run
-                        //   entireAppLoaded = true;
-                        //   await runAllCloudFunctions(
-                        //     context,
-                        //     forceSignIn: true,
-                        //   );
-                        //   popRoute(context);
-                        //   nextNavigation();
-                        // }
-                        // else {
-                        //   nextNavigation();
-                        // }
-
-                        // set this to true so cloud functions run
-                        entireAppLoaded = true;
-                        await runAllCloudFunctions(
-                          context,
-                          forceSignIn: true,
-                        );
-
-                        nextNavigation();
-                        loadingIndeterminateKey.currentState
-                            ?.setVisibility(false);
-                      },
-                      onError: (e) {
-                        print("Error signing in: " + e.toString());
-                        loadingIndeterminateKey.currentState
-                            ?.setVisibility(false);
-                      },
-                    );
-                  },
-                  title: "sign-in-with-google".tr(),
-                  icon: MoreIcons.google,
-                  isExpanded: false,
-                ),
-          getPlatform() == PlatformOS.isIOS
-              ? SizedBox.shrink()
-              : SizedBox(height: 8),
-          getPlatform() == PlatformOS.isIOS
-              ? SizedBox.shrink()
-              : Padding(
-                  padding:
-                      const EdgeInsetsDirectional.symmetric(horizontal: 25),
-                  child: TextFont(
-                    text: "onboarding-info-3".tr(),
-                    textAlign: TextAlign.center,
-                    fontSize: 16,
-                    maxLines: 5,
-                  ),
-                ),
-          getPlatform() == PlatformOS.isIOS
-              ? SizedBox.shrink()
-              : SizedBox(height: 35),
-          if (FireflyMode.available)
-            Padding(
-              padding: const EdgeInsetsDirectional.only(bottom: 15),
-              child: SettingsContainerOutlined(
-                onTap: () async {
-                  final connected = await pushRoute(
-                      context, const FireflyConnectionPage(onboarding: true));
-                  if (connected == true) nextNavigation();
-                },
-                title: "firefly-onboarding-connect".tr(),
-                description: "firefly-onboarding-connect-description".tr(),
-                icon: Icons.local_fire_department_rounded,
-                isExpanded: false,
-              ),
-            ),
-          getPlatform() == PlatformOS.isIOS
-              ? SizedBox.shrink()
-              : LowKeyButton(
-                  onTap: () {
-                    nextNavigation();
-                  },
-                  text: "continue-without-sign-in".tr(),
-                ),
+          OnboardingLoginOptions(nextNavigation: nextNavigation),
           // IntrinsicWidth(
           //   child: Button(
           //     label: "Let's go!",
@@ -696,6 +575,144 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Sign-in choices on the last onboarding page. Google sign-in is gated
+/// off (WP-42), leaving Firefly login and continuing offline.
+class OnboardingLoginOptions extends StatelessWidget {
+  const OnboardingLoginOptions({super.key, required this.nextNavigation});
+  final Function() nextNavigation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        getPlatform() == PlatformOS.isIOS ||
+                !PlatformCapabilities.supportsGoogleSignIn
+            ? SizedBox.shrink()
+            : SettingsContainerOutlined(
+                onTap: () async {
+                  loadingIndeterminateKey.currentState?.setVisibility(true);
+                  openLoadingPopupTryCatch(
+                    () async {
+                      // Can maybe use this function, but on web first login does not sync...
+                      // Let's just use the functionality below this
+                      // await signInAndSync(context, next: () {});
+
+                      await signInGoogle(
+                        context: context,
+                        waitForCompletion: false,
+                        next: () {},
+                      );
+                      if (appStateSettings["username"] == "" &&
+                          googleUser != null) {
+                        updateSettings(
+                            "username", googleUser?.displayName ?? "",
+                            pagesNeedingRefresh: [0], updateGlobalState: false);
+                      }
+                      // If user has sync backups, but no real backups it will show up here
+                      // For now disable restoring of a backup popup, the sync backups will be restored automatically using the function call below
+                      // var result;
+                      // List<drive.File>? files = (await getDriveFiles()).$2;
+                      // if ((files?.length ?? 0) > 0) {
+                      //   result = await openPopup(
+                      //     context,
+                      //     icon: appStateSettings["outlinedIcons"] ? Icons.cloud_sync_outlined : Icons.cloud_sync_rounded,
+                      //     title: "backup-found".tr(),
+                      //     description: "backup-found-description".tr(),
+                      //     onSubmit: () {
+                      //       popRoute(context, true);
+                      //     },
+                      //     onCancel: () {
+                      //       popRoute(context, false);
+                      //     },
+                      //     onSubmitLabel: "restore".tr(),
+                      //     onCancelLabel: "cancel".tr(),
+                      //   );
+                      // }
+                      // if (result == true) {
+                      //   chooseBackup(context, hideDownloadButton: true);
+                      // } else if (result == false && googleUser != null) {
+                      //   openLoadingPopup(context);
+                      //   // set this to true so cloud functions run
+                      //   entireAppLoaded = true;
+                      //   await runAllCloudFunctions(
+                      //     context,
+                      //     forceSignIn: true,
+                      //   );
+                      //   popRoute(context);
+                      //   nextNavigation();
+                      // }
+                      // else {
+                      //   nextNavigation();
+                      // }
+
+                      // set this to true so cloud functions run
+                      entireAppLoaded = true;
+                      await runAllCloudFunctions(
+                        context,
+                        forceSignIn: true,
+                      );
+
+                      nextNavigation();
+                      loadingIndeterminateKey.currentState
+                          ?.setVisibility(false);
+                    },
+                    onError: (e) {
+                      print("Error signing in: " + e.toString());
+                      loadingIndeterminateKey.currentState
+                          ?.setVisibility(false);
+                    },
+                  );
+                },
+                title: "sign-in-with-google".tr(),
+                icon: MoreIcons.google,
+                isExpanded: false,
+              ),
+        getPlatform() == PlatformOS.isIOS
+            ? SizedBox.shrink()
+            : SizedBox(height: 8),
+        getPlatform() == PlatformOS.isIOS ||
+                !PlatformCapabilities.supportsGoogleSignIn
+            ? SizedBox.shrink()
+            : Padding(
+                padding: const EdgeInsetsDirectional.symmetric(horizontal: 25),
+                child: TextFont(
+                  text: "onboarding-info-3".tr(),
+                  textAlign: TextAlign.center,
+                  fontSize: 16,
+                  maxLines: 5,
+                ),
+              ),
+        getPlatform() == PlatformOS.isIOS
+            ? SizedBox.shrink()
+            : SizedBox(height: 35),
+        if (FireflyMode.available)
+          Padding(
+            padding: const EdgeInsetsDirectional.only(bottom: 15),
+            child: SettingsContainerOutlined(
+              onTap: () async {
+                final connected = await pushRoute(
+                    context, const FireflyConnectionPage(onboarding: true));
+                if (connected == true) nextNavigation();
+              },
+              title: "firefly-onboarding-connect".tr(),
+              description: "firefly-onboarding-connect-description".tr(),
+              icon: Icons.local_fire_department_rounded,
+              isExpanded: false,
+            ),
+          ),
+        getPlatform() == PlatformOS.isIOS
+            ? SizedBox.shrink()
+            : LowKeyButton(
+                onTap: () {
+                  nextNavigation();
+                },
+                text: "continue-without-sign-in".tr(),
+              ),
       ],
     );
   }

@@ -11,6 +11,7 @@ void main() {
   void on(TargetPlatform platform) =>
       debugDefaultTargetPlatformOverride = platform;
 
+  // Google sign-in and Firebase are off everywhere (WP-42)
   test('mobile keeps every plugin feature', () {
     for (final TargetPlatform platform in <TargetPlatform>[
       TargetPlatform.android,
@@ -18,8 +19,8 @@ void main() {
     ]) {
       on(platform);
       expect(PlatformCapabilities.isMobile, isTrue);
-      expect(PlatformCapabilities.supportsGoogleSignIn, isTrue);
-      expect(PlatformCapabilities.supportsFirebase, isTrue);
+      expect(PlatformCapabilities.supportsGoogleSignIn, isFalse);
+      expect(PlatformCapabilities.supportsFirebase, isFalse);
       expect(PlatformCapabilities.supportsLocalNotifications, isTrue);
       expect(PlatformCapabilities.supportsBiometrics, isTrue);
       expect(PlatformCapabilities.supportsInAppPurchase, isTrue);

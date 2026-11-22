@@ -1,5 +1,9 @@
 import 'package:budget/colors.dart';
+import 'package:budget/firefly/ui/account/firefly_account_tile.dart';
 import 'package:budget/functions.dart';
+import 'package:budget/platform/capabilities.dart';
+import 'package:budget/widgets/exportDB.dart';
+import 'package:budget/widgets/importDB.dart';
 import 'package:budget/main.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/struct/settings.dart';
@@ -40,6 +44,20 @@ class AccountsPageState extends State<AccountsPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (!PlatformCapabilities.supportsGoogleSignIn) {
+      return PageFramework(
+        horizontalPaddingConstrained: true,
+        dragDownToDismiss: true,
+        expandedHeight: 56,
+        title: "firefly-account-connect".tr(),
+        listWidgets: [
+          const FireflyAccountTile(),
+          SettingsHeader(title: "backups".tr()),
+          ExportDB(),
+          ImportDB(),
+        ],
+      );
+    }
     Widget profileWidget = Container(
       width: 100,
       height: 100,
