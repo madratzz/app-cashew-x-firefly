@@ -131,7 +131,10 @@ class FireflyRecurrence extends FireflyResource {
             if (transaction.containsKey('subscription_id'))
               'bill_id':
                   transaction['subscription_id'] ?? transaction['bill_id'],
-          },
+          }
+            // 6.6.2 reads back `tags: []` but rejects it on write.
+            ..removeWhere((key, value) =>
+                key == 'tags' && value is List && value.isEmpty),
       ];
     }
     return fields;

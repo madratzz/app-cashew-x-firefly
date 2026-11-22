@@ -103,6 +103,12 @@ class Phase2Emulator extends FireflyEmulator {
     final first = DateTime.tryParse('${body['first_date']}');
     return {
       ...body,
+      // 6.6.2 reads a template without tags back as `tags: []`.
+      'transactions': [
+        for (final transaction
+            in (body['transactions'] as List? ?? const []).cast<JsonObject>())
+          {'tags': <String>[], ...transaction},
+      ],
       'repetitions': [
         for (final repetition
             in (body['repetitions'] as List? ?? const []).cast<JsonObject>())
@@ -167,6 +173,15 @@ class Phase2Emulator extends FireflyEmulator {
         body['transactions'] is! List) {
       requests.add((method: 'PUT', path: normalized, query: query, body: body));
       throw const FireflyValidation('Need at least one transaction.');
+    }
+    if (normalized.startsWith('/recurrences/') &&
+        (body['transactions'] as List).any((transaction) {
+          final tags = (transaction as JsonObject)['tags'];
+          return tags is List && tags.isEmpty;
+        })) {
+      requests.add((method: 'PUT', path: normalized, query: query, body: body));
+      throw const FireflyValidation(
+          'The transactions.0.tags must be at least 1 characters.');
     }
     if (!normalized.startsWith('$_banks/')) {
       return super.put(path, body, query: query);
