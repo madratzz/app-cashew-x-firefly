@@ -136,11 +136,6 @@ void definePhase1Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     await device.editTransaction(deposit, name: 'E2E local deposit edited');
     await device.editTransaction(transferOut, amount: -16);
     expect((await device.sync()).report.succeeded, isTrue);
-    // DBG
-    print('DBG map ${await device.context.idMap.byLocal(_wallet, wallet)}');
-    print('DBG row ${await (device.db.select(device.db.wallets)..where((r) => r.walletPk.equals(wallet))).getSingle()}');
-    print('DBG remote ${(await device.admin.accounts.get(walletId)).attributes}');
-    print('DBG conflicts ${await device.db.select(device.db.fireflyConflicts).get()}');
     expect((await device.admin.accounts.get(walletId)).name,
         'E2E Local wallet edited');
     expect((await device.admin.categories.get(categoryId)).name,

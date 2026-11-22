@@ -97,7 +97,13 @@ void main() {
       expect(edited['attributes'], containsPair(name, 'Device edit'));
       expect(edited['attributes'], containsPair('notes', 'Offline note'));
       final update = fixture.writes.lastWhere((r) => r.path == endpoint);
-      expect(update.body, {name: 'Device edit', 'notes': 'Offline note'});
+      // A recurrence PUT also carries its transactions, which 6.6.2 requires.
+      expect(
+          {...update.body!}..remove('transactions'),
+          {name: 'Device edit', 'notes': 'Offline note'});
+      if (path == '/recurrences') {
+        expect(update.body!['transactions'], isNotEmpty);
+      }
       await fixture.expectNoWrites();
 
       await fixture.api.transport.put(endpoint, {name: 'Server edit'});

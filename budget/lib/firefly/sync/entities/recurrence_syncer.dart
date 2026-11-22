@@ -23,6 +23,16 @@ class RecurrenceSyncer extends BillRecurrenceSyncer<FireflyRecurrence> {
   @override
   RecurrencesApi api(SyncContext context) => context.api.recurrences;
 
+  // Firefly 6.6.2 UpdateRequest rejects any PUT without transactions ("Need
+  // at least one transaction."), even a title-only edit, so the template is
+  // always sent.
+  @override
+  JsonObject updateBody(JsonObject local, JsonObject remote) => {
+        ...super.updateBody(local, remote),
+        if (local['transactions'] case final List<Object?> transactions)
+          'transactions': transactions,
+      };
+
   @override
   JsonObject writable(JsonObject attributes) =>
       FireflyRecurrence(id: '', attributes: attributes)
