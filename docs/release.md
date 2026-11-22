@@ -26,8 +26,14 @@ No signing material is in the repository. Configure these as GitHub Actions repo
 | `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
 | `ANDROID_KEY_ALIAS` | Key alias |
 | `ANDROID_KEY_PASSWORD` | Key password |
+| `APPLE_TEAM_ID` | Apple Team ID. When set, the macOS build keeps `keychain-access-groups`; when absent, CI removes it before the ad-hoc signed build |
 
 When `ANDROID_KEYSTORE_BASE64` is absent, `scripts/ci/android-signing.sh` generates a throwaway key so release builds still assemble; such APKs cannot update a store install. iOS and macOS builds are unsigned (ad-hoc for macOS); Apple signing and notarisation are not wired yet. Windows builds are unsigned.
+
+## Smoke checks
+
+- The macOS job launches the built `.app` for 10 s and fails if it exits. An ad-hoc signed app that still carries `keychain-access-groups` is killed by AMFI at launch, so `scripts/ci/macos-entitlements.sh` removes that key from the working copy unless `APPLE_TEAM_ID` is set. The committed entitlements are unchanged.
+- The `keychain-macos` and `keychain-ios` jobs run `scripts/ci/integration_test/token_store_smoke_test.dart` (copied into `budget/integration_test/` at CI time only) on macOS and on an iOS simulator. The test writes, reads and deletes the Firefly token through `TokenStore`.
 
 ## Not yet covered
 

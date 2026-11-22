@@ -12,4 +12,5 @@ if ! ls "$install_path/VC/Tools/MSVC" | grep -q "^$version"; then
     --installPath "$install_path" --add "$component" --quiet --norestart --nocache
 fi
 ls "$install_path/VC/Tools/MSVC"
+echo "CMAKE_GENERATOR=Visual Studio 17 2022" >> "$GITHUB_ENV"
 echo "CMAKE_GENERATOR_TOOLSET=v143,version=$version" >> "$GITHUB_ENV"

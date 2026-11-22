@@ -25,6 +25,8 @@ on:
         required: false
       ANDROID_KEY_PASSWORD:
         required: false
+      APPLE_TEAM_ID:
+        required: false
 
 permissions:
   contents: read
@@ -82,6 +84,11 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: scripts/ci/android-signing.sh
+      - if: matrix.target == 'macos'
+        name: Drop Team-ID-only entitlements for ad-hoc signing
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: scripts/ci/macos-entitlements.sh
       - name: Build
         working-directory: budget
         run: |
@@ -92,6 +99,9 @@ jobs:
             ios) flutter build ios "--$MODE" --no-codesign ;;
             *) flutter build "${{ matrix.target }}" "--$MODE" ;;
           esac
+      - if: matrix.target == 'macos'
+        name: Launch smoke test
+        run: scripts/ci/macos-smoke.sh "$MODE"
       - name: Package
         run: scripts/ci/package.sh "${{ matrix.target }}" "$MODE"
       - uses: actions/upload-artifact@v5
@@ -99,3 +109,23 @@ jobs:
           name: cashew-${{ matrix.target }}-${{ env.MODE }}
           path: dist/*
           if-no-files-found: error
+
+  keychain-smoke:
+    name: keychain-${{ matrix.target }}
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [macos, ios]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - if: matrix.target == 'macos'
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: scripts/ci/macos-entitlements.sh
+      - name: Install pinned Flutter
+        run: scripts/ci/install-flutter.sh
+      - run: flutter pub get --enforce-lockfile
+        working-directory: budget
+      - name: TokenStore keychain round trip
+        run: scripts/ci/keychain-smoke.sh "${{ matrix.target }}"
