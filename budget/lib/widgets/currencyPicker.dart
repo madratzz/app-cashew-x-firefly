@@ -1,3 +1,4 @@
+import 'package:budget/firefly/firefly.dart';
 import 'package:budget/colors.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/exchangeRatesPage.dart';
@@ -44,6 +45,11 @@ class _CurrencyPickerState extends State<CurrencyPicker> {
   @override
   void initState() {
     super.initState();
+    if (FireflyMode.enabled) {
+      registerFireflyCustomCurrencies().then((_) {
+        if (mounted) setState(() {});
+      });
+    }
     if (widget.initialCurrency == null) {
       setState(() {
         selectedCurrency = getDevicesDefaultCurrencyCode();

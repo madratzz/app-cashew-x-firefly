@@ -1,0 +1,15 @@
+{
+  "firefly-currencies-title": "Currencies",
+  "firefly-currencies-description": "Enable currencies and choose the primary currency on your Firefly III server",
+  "firefly-currencies-empty": "No currencies have been synced yet",
+  "firefly-currencies-primary": "Primary currency",
+  "firefly-currencies-set-primary": "Make primary currency",
+  "firefly-currencies-custom": "Not in Cashew's currency list",
+  "firefly-currencies-action-failed": "The server did not accept the change. Try again after the next sync",
+  "firefly-currencies-server-rates": "Use Firefly III exchange rates",
+  "firefly-currencies-server-rates-description": "Rates stored on your server replace the public rates where available",
+  "firefly-foreign-amount": "Foreign amount",
+  "firefly-foreign-currency": "Foreign currency",
+  "firefly-foreign-amount-clear": "Clear foreign amount",
+  "firefly-foreign-amount-invalid": "Enter a positive number"
+}
