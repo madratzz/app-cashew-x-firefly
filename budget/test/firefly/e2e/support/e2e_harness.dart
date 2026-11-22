@@ -51,11 +51,17 @@ class E2eTarget {
   }
 
   /// An emulated server on a loopback port, reached through the real transport.
-  static Future<E2eTarget> fake(DateTime Function() clock) async {
-    final emulator = FireflyEmulator(clock: clock);
-    final server = await FakeFireflyServer.start(transport: emulator);
+  /// [emulator] and [intercept] let a later phase answer more of the API.
+  static Future<E2eTarget> fake(
+    DateTime Function() clock, {
+    FireflyEmulator Function(DateTime Function() clock)? emulator,
+    Future<bool> Function(HttpRequest request)? intercept,
+  }) async {
+    final fake = emulator?.call(clock) ?? FireflyEmulator(clock: clock);
+    final server =
+        await FakeFireflyServer.start(transport: fake, intercept: intercept);
     return E2eTarget._(
-        Uri.parse(e2eConfig.baseUrl), 'REDACTED', false, server.close, emulator,
+        Uri.parse(e2eConfig.baseUrl), 'REDACTED', false, server.close, fake,
         loopback: server.baseUrl);
   }
 
