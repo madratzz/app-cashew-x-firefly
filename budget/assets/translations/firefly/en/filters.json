@@ -1,0 +1,11 @@
+{
+  "firefly-filters-match-all-tags": "Match all tags",
+  "firefly-filters-any-tag": "Any tag: {tags}",
+  "firefly-filters-all-tags": "All tags: {tags}",
+  "firefly-filters-bill": "Bill",
+  "firefly-filters-reconciled": "Reconciled",
+  "firefly-filters-not-reconciled": "Not reconciled",
+  "firefly-filters-has-attachment": "Has attachment",
+  "firefly-filters-no-attachment": "No attachment",
+  "firefly-filters-payee-tag-matches": "Matching payees and tags"
+}

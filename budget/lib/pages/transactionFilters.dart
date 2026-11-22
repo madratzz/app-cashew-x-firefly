@@ -1,6 +1,12 @@
 import 'dart:math';
 
 import 'package:budget/database/tables.dart';
+import 'package:budget/firefly/db/filter_queries.dart';
+import 'package:budget/firefly/firefly.dart';
+import 'package:budget/firefly/db/bill_recurrence_queries.dart';
+import 'package:budget/firefly/db/payee_queries.dart';
+import 'package:budget/firefly/db/resource_cache_repository.dart';
+import 'package:budget/firefly/db/tag_queries.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addBudgetPage.dart';
 import 'package:budget/pages/addObjectivePage.dart';
@@ -44,7 +50,8 @@ class SearchFilters {
     this.searchQuery,
     this.titleContains,
     this.noteContains,
-  }) {
+    FireflySearchFilters? firefly,
+  }) : firefly = firefly ?? FireflySearchFilters() {
     walletPks = this.walletPks.isEmpty ? [] : this.walletPks;
     categoryPks = this.categoryPks.isEmpty ? [] : this.categoryPks;
     subcategoryPks =
@@ -88,6 +95,8 @@ class SearchFilters {
   String? searchQuery;
   String? titleContains;
   String? noteContains;
+  // Only applied in Firefly mode on the search page.
+  FireflySearchFilters firefly;
 
   SearchFilters copyWith({
     List<String>? walletPks,
@@ -132,6 +141,7 @@ class SearchFilters {
       searchQuery: searchQuery ?? this.searchQuery,
       titleContains: titleContains ?? this.titleContains,
       noteContains: noteContains ?? this.noteContains,
+      firefly: firefly.copy(),
     );
   }
 
@@ -155,6 +165,7 @@ class SearchFilters {
     searchQuery = null;
     titleContains = null;
     noteContains = null;
+    firefly.clear();
   }
 
   bool isClear({bool? ignoreDateTimeRange, bool? ignoreSearchQuery}) {
@@ -176,7 +187,8 @@ class SearchFilters {
         (ignoreDateTimeRange == true || dateTimeRange == null) &&
         (ignoreSearchQuery == true || searchQuery == null) &&
         titleContains == null &&
-        noteContains == null)
+        noteContains == null &&
+        firefly.isClear)
       return true;
     else
       return false;
@@ -298,6 +310,24 @@ class SearchFilters {
               titleContains = value;
             }
             break;
+          case 'fireflyPayeePk':
+            firefly.payeePk = value;
+            break;
+          case 'fireflyTagPks':
+            firefly.tagPks.add(value);
+            break;
+          case 'fireflyMatchAllTags':
+            firefly.matchAllTags = bool.parse(value);
+            break;
+          case 'fireflyBillPk':
+            firefly.billPk = value;
+            break;
+          case 'fireflyReconciled':
+            firefly.reconciled = bool.parse(value);
+            break;
+          case 'fireflyHasAttachment':
+            firefly.hasAttachment = bool.parse(value);
+            break;
           case 'noteContains':
             if (value == "null" || value.trim() == "") {
               noteContains = null;
@@ -370,6 +400,24 @@ class SearchFilters {
     outString += "searchQuery:-:" + searchQuery.toString() + ":-:";
     outString += "titleContains:-:" + titleContains.toString() + ":-:";
     outString += "noteContains:-:" + noteContains.toString() + ":-:";
+    final fireflyPayeePk = firefly.payeePk;
+    if (fireflyPayeePk != null) {
+      outString += "fireflyPayeePk:-:$fireflyPayeePk:-:";
+    }
+    for (String element in firefly.tagPks) {
+      outString += "fireflyTagPks:-:$element:-:";
+    }
+    if (firefly.matchAllTags) outString += "fireflyMatchAllTags:-:true:-:";
+    final fireflyBillPk = firefly.billPk;
+    if (fireflyBillPk != null) {
+      outString += "fireflyBillPk:-:$fireflyBillPk:-:";
+    }
+    if (firefly.reconciled != null) {
+      outString += "fireflyReconciled:-:${firefly.reconciled}:-:";
+    }
+    if (firefly.hasAttachment != null) {
+      outString += "fireflyHasAttachment:-:${firefly.hasAttachment}:-:";
+    }
     //print(outString);
     return outString;
   }
@@ -573,11 +621,13 @@ class TransactionFiltersSelection extends StatefulWidget {
       {required this.searchFilters,
       required this.setSearchFilters,
       required this.clearSearchFilters,
+      this.showFireflyFilters = false,
       super.key});
 
   final SearchFilters searchFilters;
   final Function(SearchFilters searchFilters) setSearchFilters;
   final Function() clearSearchFilters;
+  final bool showFireflyFilters;
 
   @override
   State<TransactionFiltersSelection> createState() =>
@@ -1136,6 +1186,12 @@ class _TransactionFiltersSelectionState
         //   },
         // ),
 
+        if (showFireflySearchFilters(widget.showFireflyFilters))
+          FireflyFiltersSection(
+            filters: selectedFilters.firefly,
+            onChanged: setSearchFilters,
+          ),
+
         SizedBox(height: 5),
         Padding(
           padding: const EdgeInsetsDirectional.symmetric(horizontal: 20),
@@ -1551,6 +1607,17 @@ class AppliedFilterChips extends StatelessWidget {
       ));
     }
 
+    // Firefly payee, tags, bill, reconciled and attachments
+    if (FireflyMode.enabled) {
+      for (String label
+          in await fireflyFilterLabels(database, searchFilters.firefly)) {
+        out.add(AppliedFilterChip(
+          label: label,
+          openFiltersSelection: openFiltersSelection,
+        ));
+      }
+    }
+
     return out;
   }
 
@@ -1601,4 +1668,169 @@ class AppliedFilterChips extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Firefly filters appear only where requested and only in Firefly mode.
+bool showFireflySearchFilters(bool requested) =>
+    requested && FireflyMode.enabled;
+
+/// Payee, tag, bill, reconciled and attachment filters shown in Firefly mode.
+class FireflyFiltersSection extends StatelessWidget {
+  const FireflyFiltersSection({
+    required this.filters,
+    required this.onChanged,
+    this.db,
+    super.key,
+  });
+
+  final FireflySearchFilters filters;
+  final VoidCallback onChanged;
+  final FinanceDatabase? db;
+
+  @override
+  Widget build(BuildContext context) {
+    final FinanceDatabase source = db ?? database;
+    return Column(
+      key: const ValueKey('firefly-filters-section'),
+      children: [
+        StreamBuilder<List<Payee>>(
+          stream: source.watchFireflyPayees(),
+          builder: (context, snapshot) {
+            final payees = snapshot.data ?? [];
+            if (payees.isEmpty) return const SizedBox.shrink();
+            return SelectChips<Payee>(
+              key: const ValueKey('firefly-filters-payees'),
+              items: payees,
+              allowMultipleSelected: false,
+              getLabel: (payee) => payee.name,
+              getSelected: (payee) => filters.payeePk == payee.payeePk,
+              onSelected: (payee) {
+                filters.payeePk =
+                    filters.payeePk == payee.payeePk ? null : payee.payeePk;
+                onChanged();
+              },
+            );
+          },
+        ),
+        StreamBuilder<List<Tag>>(
+          stream: source.watchFireflyTags(),
+          builder: (context, snapshot) {
+            final tags = snapshot.data ?? [];
+            if (tags.isEmpty) return const SizedBox.shrink();
+            return SelectChips<Tag?>(
+              key: const ValueKey('firefly-filters-tags'),
+              items: [null, ...tags],
+              getLabel: (tag) => tag == null
+                  ? "firefly-filters-match-all-tags".tr()
+                  : tag.name,
+              getSelected: (tag) => tag == null
+                  ? filters.matchAllTags
+                  : filters.tagPks.contains(tag.tagPk),
+              onSelected: (tag) {
+                if (tag == null) {
+                  filters.matchAllTags = !filters.matchAllTags;
+                } else if (!filters.tagPks.remove(tag.tagPk)) {
+                  filters.tagPks.add(tag.tagPk);
+                }
+                onChanged();
+              },
+            );
+          },
+        ),
+        StreamBuilder<List<FireflyCachedResource>>(
+          stream: source.watchFireflyBills(),
+          builder: (context, snapshot) {
+            final bills = snapshot.data ?? [];
+            if (bills.isEmpty) return const SizedBox.shrink();
+            return SelectChips<FireflyCachedResource>(
+              key: const ValueKey('firefly-filters-bills'),
+              items: bills,
+              allowMultipleSelected: false,
+              getLabel: fireflyBillLabel,
+              getSelected: (bill) => filters.billPk == bill.resourcePk,
+              onSelected: (bill) {
+                filters.billPk = filters.billPk == bill.resourcePk
+                    ? null
+                    : bill.resourcePk;
+                onChanged();
+              },
+            );
+          },
+        ),
+        SelectChips<bool>(
+          key: const ValueKey('firefly-filters-reconciled'),
+          items: const [true, false],
+          allowMultipleSelected: false,
+          getLabel: (value) => value
+              ? "firefly-filters-reconciled".tr()
+              : "firefly-filters-not-reconciled".tr(),
+          getSelected: (value) => filters.reconciled == value,
+          onSelected: (value) {
+            filters.reconciled = filters.reconciled == value ? null : value;
+            onChanged();
+          },
+        ),
+        SelectChips<bool>(
+          key: const ValueKey('firefly-filters-attachments'),
+          items: const [true, false],
+          allowMultipleSelected: false,
+          getLabel: (value) => value
+              ? "firefly-filters-has-attachment".tr()
+              : "firefly-filters-no-attachment".tr(),
+          getSelected: (value) => filters.hasAttachment == value,
+          onSelected: (value) {
+            filters.hasAttachment =
+                filters.hasAttachment == value ? null : value;
+            onChanged();
+          },
+        ),
+      ],
+    );
+  }
+}
+
+String fireflyBillLabel(FireflyCachedResource bill) {
+  final name = ResourceCacheRepository.decode(bill)['name'];
+  return name is String && name.trim().isNotEmpty
+      ? name
+      : "firefly-filters-bill".tr();
+}
+
+/// Chip labels for the active Firefly filters, in display order.
+Future<List<String>> fireflyFilterLabels(
+    FinanceDatabase db, FireflySearchFilters filters) async {
+  final List<String> out = [];
+  final payeePk = filters.payeePk;
+  if (payeePk != null) {
+    final payee = await db.fireflyPayee(payeePk);
+    if (payee != null) out.add(payee.name);
+  }
+  if (filters.tagPks.isNotEmpty) {
+    final names = [
+      for (final tag in await db.fireflyTags())
+        if (filters.tagPks.contains(tag.tagPk)) tag.name,
+    ];
+    if (names.isNotEmpty) {
+      out.add((filters.matchAllTags
+              ? "firefly-filters-all-tags"
+              : "firefly-filters-any-tag")
+          .tr(namedArgs: {"tags": names.join(", ")}));
+    }
+  }
+  final billPk = filters.billPk;
+  if (billPk != null) {
+    final bill = await db.fireflyBill(billPk);
+    if (bill != null) out.add(fireflyBillLabel(bill));
+  }
+  if (filters.reconciled != null) {
+    out.add(filters.reconciled!
+        ? "firefly-filters-reconciled".tr()
+        : "firefly-filters-not-reconciled".tr());
+  }
+  if (filters.hasAttachment != null) {
+    out.add(filters.hasAttachment!
+        ? "firefly-filters-has-attachment".tr()
+        : "firefly-filters-no-attachment".tr());
+  }
+  return out;
 }

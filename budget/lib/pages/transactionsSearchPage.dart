@@ -1,4 +1,8 @@
+import 'package:budget/database/tables.dart';
+import 'package:budget/firefly/db/filter_queries.dart';
+import 'package:budget/firefly/firefly.dart';
 import 'package:budget/functions.dart';
+import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/transactionFilters.dart';
 import 'package:budget/struct/defaultPreferences.dart';
@@ -59,6 +63,7 @@ class TransactionsSearchPageState extends State<TransactionsSearchPage>
         skipSearchQuery: true,
       );
     }
+    if (!FireflyMode.enabled) searchFilters.firefly.clear();
 
     _animationControllerSearch = AnimationController(vsync: this, value: 1);
     super.initState();
@@ -87,6 +92,7 @@ class TransactionsSearchPageState extends State<TransactionsSearchPage>
           setSearchFilters: setSearchFilters,
           searchFilters: searchFilters,
           clearSearchFilters: clearSearchFilters,
+          showFireflyFilters: true,
         ),
       ),
     );
@@ -334,6 +340,12 @@ class TransactionsSearchPageState extends State<TransactionsSearchPage>
                 ),
               ),
             );
+            if (FireflyMode.enabled && !searchFilters.firefly.isClear) {
+              return FireflyFilteredTransactionsList(
+                searchFilters: searchFilters,
+                emptyWidget: dateRangeWidget,
+              );
+            }
             return TransactionEntries(
               renderType:
                   appStateSettings["appAnimations"] != AppAnimations.all.index
@@ -371,6 +383,8 @@ class TransactionsSearchPageState extends State<TransactionsSearchPage>
           //     selectDateRange(context);
           //   },
           // ),
+          if (FireflyMode.enabled && searchFilters.firefly.isClear)
+            FireflyPayeeTagMatches(search: searchFilters.searchQuery ?? ""),
           SliverToBoxAdapter(
             child: SizedBox(height: 50),
           ),
@@ -443,6 +457,110 @@ class AppliedFilterChip extends StatelessWidget {
               // ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Search results when Firefly filters are set, read from the local cache.
+class FireflyFilteredTransactionsList extends StatelessWidget {
+  const FireflyFilteredTransactionsList({
+    required this.searchFilters,
+    this.emptyWidget,
+    this.db,
+    super.key,
+  });
+
+  final SearchFilters searchFilters;
+  final Widget? emptyWidget;
+  final FinanceDatabase? db;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<Transaction>>(
+      stream: (db ?? database).watchFireflyFilteredTransactions(
+        searchFilters.firefly,
+        searchFilters: searchFilters,
+      ),
+      builder: (context, snapshot) {
+        final rows = snapshot.data ?? [];
+        if (snapshot.hasData && rows.isEmpty) {
+          return SliverToBoxAdapter(
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                TextFont(
+                  text: "no-transactions-found".tr(),
+                  fontSize: 15,
+                  textAlign: TextAlign.center,
+                ),
+                if (emptyWidget != null) emptyWidget!,
+              ],
+            ),
+          );
+        }
+        return _FireflyTransactionSliver(rows: rows);
+      },
+    );
+  }
+}
+
+/// Transactions found only through their payee or tag names.
+class FireflyPayeeTagMatches extends StatelessWidget {
+  const FireflyPayeeTagMatches({required this.search, this.db, super.key});
+
+  final String search;
+  final FinanceDatabase? db;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<Transaction>>(
+      stream: (db ?? database).watchFireflyPayeeTagMatches(search),
+      builder: (context, snapshot) {
+        final rows = snapshot.data ?? [];
+        if (rows.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+        return SliverMainAxisGroup(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsetsDirectional.only(
+                    start: 20, end: 20, top: 15, bottom: 5),
+                child: TextFont(
+                  text: "firefly-filters-payee-tag-matches".tr(),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            _FireflyTransactionSliver(rows: rows),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _FireflyTransactionSliver extends StatelessWidget {
+  const _FireflyTransactionSliver({required this.rows});
+
+  final List<Transaction> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        childCount: rows.length,
+        (context, index) => TransactionEntry(
+          key: ValueKey(rows[index].transactionPk),
+          openPage: AddTransactionPage(
+            transaction: rows[index],
+            routesToPopAfterDelete: RoutesToPopAfterDelete.One,
+          ),
+          transaction: rows[index],
+          listID: "TransactionsSearch",
+          transactionBefore: index > 0 ? rows[index - 1] : null,
+          transactionAfter: index < rows.length - 1 ? rows[index + 1] : null,
         ),
       ),
     );
