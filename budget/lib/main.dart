@@ -35,7 +35,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:device_preview/device_preview.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:budget/platform/timezone.dart';
 import 'firebase_options.dart';
 import 'package:easy_localization/easy_localization.dart';
 
@@ -62,7 +62,7 @@ void main() async {
     await initializeSettings();
     await FireflyMode.init(() => appStateSettings);
     tz.initializeTimeZones();
-    final String? locationName = await FlutterTimezone.getLocalTimezone();
+    final String? locationName = await localTimezoneName();
     try {
       tz.setLocalLocation(tz.getLocation(locationName ?? "America/New_York"));
     } catch (e) {
