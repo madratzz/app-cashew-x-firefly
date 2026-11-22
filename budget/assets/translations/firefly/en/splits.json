@@ -1,0 +1,20 @@
+{
+  "firefly-splits-start": "Split this transaction",
+  "firefly-splits-title": "Splits",
+  "firefly-splits-group-title": "Group title",
+  "firefly-splits-group-title-default": "Leave blank to use the first split's description: {title}",
+  "firefly-splits-group-title-default-main": "Leave blank to use this transaction's description",
+  "firefly-splits-main": "This transaction",
+  "firefly-splits-main-description": "Description, amount and category come from the form above",
+  "firefly-splits-description": "Description",
+  "firefly-splits-amount": "Amount",
+  "firefly-splits-category": "Category",
+  "firefly-splits-remove": "Remove split",
+  "firefly-splits-add": "Add split",
+  "firefly-splits-total": "{count} splits · other splits total {total}",
+  "firefly-splits-error-description": "Every split needs a description",
+  "firefly-splits-error-amount": "Every split needs an amount above zero",
+  "firefly-splits-chip": "Split",
+  "firefly-splits-chip-position": "Split {index} of {count}",
+  "firefly-splits-page-total": "Total of {count} splits"
+}
