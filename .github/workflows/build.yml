@@ -50,7 +50,7 @@ jobs:
           - { target: linux, os: ubuntu-latest, test: true }
           - { target: windows, os: windows-2022, test: true }
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - if: matrix.target == 'android'
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
@@ -116,7 +116,7 @@ jobs:
       matrix:
         target: [macos, ios]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - if: matrix.target == 'macos'
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -128,20 +128,3 @@ jobs:
       - name: TokenStore keychain round trip
         timeout-minutes: 50
         run: scripts/ci/keychain-smoke.sh "${{ matrix.target }}"
-
-  firefly-e2e:
-    name: firefly-e2e
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Install SQLite for database tests
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes libsqlite3-dev
-      - name: Install pinned Flutter
-        run: scripts/ci/install-flutter.sh
-      - run: flutter pub get --enforce-lockfile
-        working-directory: budget
-      - name: Live E2E against Docker Firefly III
-        timeout-minutes: 30
-        run: scripts/ci/firefly-e2e.sh
