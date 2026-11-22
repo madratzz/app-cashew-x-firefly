@@ -126,7 +126,8 @@ class _ConflictTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
         title: Text(_title()),
-        subtitle: Text('${conflict.entityType.name} · ${conflict.resolution} · '
+        subtitle: Text('${fireflyEntityLabel(conflict.entityType)} · '
+            '${fireflyResolutionLabel(conflict.resolution)} · '
             '${DateFormat.yMMMd().add_jm().format(conflict.dateCreated)}'),
         isThreeLine: false,
         trailing: Wrap(
@@ -145,4 +146,14 @@ class _ConflictTile extends StatelessWidget {
           ],
         ),
       );
+}
+
+String fireflyEntityLabel(FireflyEntityType type) =>
+    'firefly-entity-${type.name}'.tr();
+
+/// Falls back to the stored value for resolutions added by later packages.
+String fireflyResolutionLabel(String resolution) {
+  final key = 'firefly-resolution-$resolution';
+  final label = key.tr();
+  return label == key ? resolution : label;
 }

@@ -1,0 +1,23 @@
+{
+  "firefly-category-uncategorized": "Uncategorized",
+  "firefly-entity-walletAccount": "Account",
+  "firefly-entity-liabilityAccount": "Liability",
+  "firefly-entity-payeeAccount": "Payee",
+  "firefly-entity-category": "Category",
+  "firefly-entity-transaction": "Transaction",
+  "firefly-entity-transactionGroup": "Split transaction",
+  "firefly-entity-budget": "Budget",
+  "firefly-entity-budgetLimit": "Budget limit",
+  "firefly-entity-piggyBank": "Piggy bank",
+  "firefly-entity-bill": "Bill",
+  "firefly-entity-recurrence": "Recurring transaction",
+  "firefly-entity-tag": "Tag",
+  "firefly-entity-attachment": "Attachment",
+  "firefly-entity-currency": "Currency",
+  "firefly-entity-rule": "Rule",
+  "firefly-entity-ruleGroup": "Rule group",
+  "firefly-entity-objectGroup": "Group",
+  "firefly-entity-transactionLink": "Transaction link",
+  "firefly-resolution-remoteWins": "Server version kept",
+  "firefly-resolution-remoteDeleted": "Deleted on the server"
+}
