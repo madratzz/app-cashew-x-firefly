@@ -100,6 +100,11 @@ class CollectionSync<T> {
   FinanceDatabase get _db => idMap.db;
   SyncMetaRepository get _meta => SyncMetaRepository(_db);
   String _rejectedHashKey(String pk) => 'rejectedHash.${_type.name}.$pk';
+
+  /// The remote hash at the last sync, kept only when the server normalised
+  /// the row (for example a reassigned account order), so it differs from
+  /// `syncedHash`, which is the local hash.
+  String _remoteHashKey(String pk) => 'remoteHash.${_type.name}.$pk';
   FireflyEntityType get _type => adapter.type;
 
   Future<CollectionPullResult> pull() async {
@@ -176,14 +181,16 @@ class CollectionSync<T> {
     final local = await adapter.readLocal(mapping.localPk);
     final updatedAt = _driftInstant(remote.updatedAt);
     final previous = mapping.remoteUpdatedAt;
+    final seen =
+        await _meta.read(_remoteHashKey(mapping.localPk)) ?? mapping.syncedHash;
     // Some resources omit updated_at or can change without advancing it.
     final changed = updatedAt == null
-        ? remote.hash != mapping.syncedHash
+        ? remote.hash != seen
         : previous == null ||
             updatedAt.isAfter(previous) ||
             (adapter.compareHashWhenTimestampsEqual &&
                 updatedAt.isAtSameMomentAs(previous) &&
-                remote.hash != mapping.syncedHash);
+                remote.hash != seen);
     final decision = resolveConflict(
       local: _localVersion(mapping, local),
       remote: changed ? RemoteSyncVersion.changed : RemoteSyncVersion.unchanged,
@@ -253,6 +260,11 @@ class CollectionSync<T> {
           : FireflySyncState.synced,
       attempts: 0,
     ));
+    if (remote.hash == local.hash) {
+      await _meta.remove(_remoteHashKey(local.pk));
+    } else {
+      await _meta.write(_remoteHashKey(local.pk), remote.hash);
+    }
     if (mapping?.state == FireflySyncState.error ||
         await _meta.read(_rejectedHashKey(local.pk)) != null) {
       await _meta.remove(_rejectedHashKey(local.pk));
@@ -290,6 +302,7 @@ class CollectionSync<T> {
   Future<void> _forgetMapping(String pk) async {
     await idMap.remove(_type, pk);
     await _meta.remove(_rejectedHashKey(pk));
+    await _meta.remove(_remoteHashKey(pk));
   }
 
   Future<void> push() async {

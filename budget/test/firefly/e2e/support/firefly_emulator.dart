@@ -6,7 +6,7 @@ import '../../../support/fake_firefly_transport.dart';
 
 /// An in-memory Firefly III 6.6.2 with the behaviour the Phase 1 sync relies
 /// on: journal ids, date windows, `updated_at_after` search, computed
-/// `current_balance` and cascading deletes. It answers like the live server
+/// `current_balance`, server-assigned account order and cascading deletes. It answers like the live server
 /// for the requests the E2E suite sends, and nothing more.
 class FireflyEmulator extends FakeFireflyTransport {
   FireflyEmulator({DateTime Function()? clock})
@@ -182,6 +182,11 @@ class FireflyEmulator extends FakeFireflyTransport {
               'currency_code': 'USD',
               'currency_decimal_places': 2,
               ...body,
+              // Firefly assigns the order itself and ignores the one sent.
+              'order': 1 +
+                  _accounts.values
+                      .where((account) => account['type'] == body['type'])
+                      .length,
             },
             query: query);
         return _touch(path, created);
