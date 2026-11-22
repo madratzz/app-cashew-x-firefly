@@ -1,5 +1,7 @@
 import 'package:budget/firefly/firefly.dart';
 import 'package:budget/firefly/ui/draft.dart';
+import 'package:budget/firefly/ui/pages/splits/split_save.dart';
+import 'package:budget/firefly/ui/transaction/split_section.dart';
 import 'package:budget/firefly/ui/slots.dart';
 import 'package:budget/platform/capabilities.dart';
 import 'package:budget/database/generatePreviewData.dart';
@@ -411,6 +413,17 @@ class _AddTransactionPageState extends State<AddTransactionPage>
       return false;
     }
     if (lockAddTransaction) return false;
+    final String? fireflySplitError = FireflyMode.enabled
+        ? fireflySplitDraftError(fireflyDraft,
+            anchorPk: widget.transaction?.transactionPk)
+        : null;
+    if (fireflySplitError != null) {
+      openSnackbar(SnackbarMessage(
+        title: fireflySplitError.tr(),
+        icon: Icons.call_split_rounded,
+      ));
+      return false;
+    }
     lockAddTransaction = true;
 
     bool result = await addTransactionLocked();
@@ -570,11 +583,24 @@ class _AddTransactionPageState extends State<AddTransactionPage>
         }
       }
 
-      final int? rowId = await database.createOrUpdateTransaction(
-        insert: widget.transaction == null,
-        createdTransaction,
-        originalTransaction: widget.transaction,
-      );
+      Future<int?> saveLegacy(Transaction transaction) async =>
+          await database.createOrUpdateTransaction(
+            insert: widget.transaction == null,
+            transaction,
+            originalTransaction: widget.transaction,
+          );
+      // Firefly mode keeps schema 47 fields and tag links on edit
+      final int? rowId = FireflyMode.enabled
+          ? await fireflySaveTransaction(
+              database,
+              createdTransaction,
+              widget.transaction == null
+                  ? null
+                  : await database.getTransactionFromPk(
+                      widget.transaction!.transactionPk),
+              saveLegacy,
+            )
+          : await saveLegacy(createdTransaction);
 
       if (rowId != null) {
         final Transaction transactionJustAdded =
@@ -582,6 +608,8 @@ class _AddTransactionPageState extends State<AddTransactionPage>
         print("Transaction just added:");
         print(transactionJustAdded);
         if (FireflyMode.enabled) {
+          fireflyRebaseSplitDraft(fireflyDraft, transactionJustAdded,
+              fireflyNewSplitPks(fireflyDraft));
           await fireflyDraft.persist(transactionJustAdded.transactionPk);
         }
 
@@ -750,6 +778,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
   void initState() {
     super.initState();
     if (FireflyMode.enabled && widget.transaction != null) {
+      fireflySetSplitAnchor(fireflyDraft, widget.transaction!.transactionPk);
       fireflyDraft
           .load(widget.transaction!.transactionPk)
           .then((_) => mounted ? setState(() {}) : null);
