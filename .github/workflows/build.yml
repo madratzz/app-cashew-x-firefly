@@ -52,7 +52,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - if: matrix.target == 'android'
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: '17'
@@ -102,7 +102,7 @@ jobs:
         run: scripts/ci/macos-smoke.sh "$MODE"
       - name: Package
         run: scripts/ci/package.sh "${{ matrix.target }}" "$MODE"
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: cashew-${{ matrix.target }}-${{ env.MODE }}
           path: dist/*
@@ -128,3 +128,20 @@ jobs:
       - name: TokenStore keychain round trip
         timeout-minutes: 50
         run: scripts/ci/keychain-smoke.sh "${{ matrix.target }}"
+
+  firefly-e2e:
+    name: firefly-e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install SQLite for database tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libsqlite3-dev
+      - name: Install pinned Flutter
+        run: scripts/ci/install-flutter.sh
+      - run: flutter pub get --enforce-lockfile
+        working-directory: budget
+      - name: Live E2E against Docker Firefly III
+        timeout-minutes: 30
+        run: scripts/ci/firefly-e2e.sh

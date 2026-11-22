@@ -35,6 +35,10 @@ When `ANDROID_KEYSTORE_BASE64` is absent, `scripts/ci/android-signing.sh` genera
 - The macOS job launches the built `.app` for 10 s and fails if it exits. An ad-hoc signed app that still carries `keychain-access-groups` is killed by AMFI at launch, so `scripts/ci/macos-entitlements.sh` removes that key from the working copy unless `APPLE_TEAM_ID` is set. The committed entitlements are unchanged.
 - The `keychain-macos` and `keychain-ios` jobs run `scripts/ci/integration_test/token_store_smoke_test.dart` (copied into `budget/integration_test/` at CI time only) on macOS and on an iOS simulator. The test writes, reads and deletes the Firefly token through `TokenStore`.
 
-## Not yet covered
+## Live E2E
 
-- The Docker Firefly E2E job waits for WP-19 (`docker/firefly/`) to merge.
+The `firefly-e2e` job starts the disposable Firefly III from `docker/firefly/up.sh`, masks the minted token, runs `test/firefly/e2e/live_e2e_test.dart` with `FIREFLY_ALLOW_HTTP=true`, and always runs `docker/firefly/down.sh`.
+
+## Action pinning
+
+Every action is pinned to a commit SHA with its version in a comment. Update a pin by resolving the new tag (`gh api repos/<owner>/<action>/commits/<tag> -q .sha`).
