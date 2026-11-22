@@ -1,4 +1,5 @@
 import 'package:budget/firefly/firefly.dart';
+import 'package:budget/firefly/ui/pages/liabilities/liabilities_page.dart';
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
@@ -204,7 +205,18 @@ class _EditWalletsPageState extends State<EditWalletsPage> {
           StreamBuilder<List<WalletWithDetails>>(
             stream: database.watchAllWalletsWithDetails(
                 searchFor: searchValue == "" ? null : searchValue),
-            builder: (context, snapshot) {
+            builder: (context, fullSnapshot) {
+              // Firefly mode lists liabilities and archived accounts apart.
+              AsyncSnapshot<List<WalletWithDetails>> snapshot = fullSnapshot;
+              if (FireflyMode.enabled && fullSnapshot.hasData) {
+                final shown = fullSnapshot.data!
+                    .where((item) =>
+                        item.wallet.accountKind != AccountKind.liability)
+                    .toList();
+                snapshot = AsyncSnapshot.withData(
+                    fullSnapshot.connectionState,
+                    shown.where((item) => !item.wallet.archived).toList());
+              }
               if (snapshot.hasData && (snapshot.data ?? []).length <= 0) {
                 return SliverToBoxAdapter(
                   child: NoResults(
@@ -346,12 +358,17 @@ class _EditWalletsPageState extends State<EditWalletsPage> {
                         snapshot.data![_intPrevious];
                     TransactionWallet oldWallet = oldWalletWithDetails.wallet;
 
+                    // Indexes skip hidden rows in Firefly mode, so move to
+                    // the order of the row now at the target position.
+                    int target(int index) => FireflyMode.enabled
+                        ? snapshot.data![index].wallet.order
+                        : index;
                     if (_intNew > _intPrevious) {
-                      await database.moveWallet(
-                          oldWallet.walletPk, _intNew - 1, oldWallet.order);
+                      await database.moveWallet(oldWallet.walletPk,
+                          target(_intNew - 1), oldWallet.order);
                     } else {
                       await database.moveWallet(
-                          oldWallet.walletPk, _intNew, oldWallet.order);
+                          oldWallet.walletPk, target(_intNew), oldWallet.order);
                     }
                     return true;
                   },
@@ -362,6 +379,8 @@ class _EditWalletsPageState extends State<EditWalletsPage> {
               );
             },
           ),
+          if (FireflyMode.enabled)
+            SliverToBoxAdapter(child: _FireflyWalletsExtras()),
           SliverToBoxAdapter(
             child: SizedBox(height: 85),
           ),
@@ -742,6 +761,60 @@ class WalletsSettings extends StatelessWidget {
         ShowCurrencyLabelSettingToggle(),
         ExchangeRateSettingPage(backgroundColor: backgroundColor),
       ],
+    );
+  }
+}
+
+/// Firefly mode: archived accounts and a link to the liabilities page.
+class _FireflyWalletsExtras extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<WalletWithDetails>>(
+      stream: database.watchAllWalletsWithDetails(),
+      builder: (context, snapshot) {
+        final archived = (snapshot.data ?? [])
+            .where((item) =>
+                item.wallet.archived &&
+                item.wallet.accountKind != AccountKind.liability)
+            .toList();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SettingsContainerOpenPage(
+              openPage: const FireflyLiabilitiesPage(),
+              title: "firefly-liabilities-open".tr(),
+              icon: Icons.account_balance_rounded,
+            ),
+            if (archived.isNotEmpty)
+              Padding(
+                key: const ValueKey("firefly-archived-accounts"),
+                padding: const EdgeInsetsDirectional.only(
+                    start: 18, end: 18, top: 15, bottom: 5),
+                child: TextFont(
+                  text: "firefly-liabilities-archived-accounts".tr(),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                ),
+              ),
+            for (final item in archived)
+              SettingsContainerOpenPage(
+                key: ValueKey("firefly-archived-${item.wallet.walletPk}"),
+                openPage: AddWalletPage(
+                    wallet: item.wallet,
+                    routesToPopAfterDelete: RoutesToPopAfterDelete.One),
+                title: item.wallet.name,
+                description: convertToMoney(
+                  Provider.of<AllWallets>(context),
+                  item.totalSpent ?? 0,
+                  currencyKey: item.wallet.currency,
+                  decimals: item.wallet.decimals,
+                  addCurrencyName: true,
+                ),
+                icon: Icons.archive_outlined,
+              ),
+          ],
+        );
+      },
     );
   }
 }
