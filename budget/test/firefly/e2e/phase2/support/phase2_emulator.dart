@@ -95,6 +95,13 @@ class Phase2Emulator extends FireflyEmulator {
       {FireflyQuery query = const {}}) async {
     if (_normalize(path) == '/budgets') return _postBudget(body, query);
     if (_normalize(path) != _banks) return super.post(path, body, query: query);
+    // Firefly 6.6.2 StoreRequest requires a start date.
+    if (body['start_date'] == null) {
+      throw const FireflyValidation('The start date field is required.',
+          errors: {
+            'start_date': ['The start date field is required.'],
+          });
+    }
     if (body['transaction_currency_code'] == null) {
       throw const FireflyValidation('Missing piggy bank currency');
     }

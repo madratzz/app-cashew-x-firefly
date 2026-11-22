@@ -242,6 +242,7 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     final bank = await device.admin.piggyBanks.create({
       'name': 'E2E2 Holiday',
       'target_amount': '500.00',
+      'start_date': formatFireflyDate(clock.now()),
       'transaction_currency_code': 'USD',
       'accounts': [
         {'account_id': checkingId, 'current_amount': '10.00'},
