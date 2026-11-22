@@ -25,6 +25,7 @@ const _single = 0;
 const _source = 1;
 const _destination = 2;
 const _initialTotal = 'transactionPage.total';
+const _initialHeld = 'transactionPage.held';
 const _searchUnavailable = 'transactionSearchUnavailable';
 
 class TransactionSyncer extends EntitySyncer {
@@ -189,6 +190,7 @@ class _TransactionCycle {
   Future<void> _clearInitialCheckpoint() => db.transaction(() async {
         await meta.remove(SyncMetaRepository.transactionPage);
         await meta.remove(_initialTotal);
+        await meta.remove(_initialHeld);
       });
 
   Future<void> _fullReconcile() async {
@@ -208,6 +210,10 @@ class _TransactionCycle {
     });
   }
 
+  /// Firefly paginates by journal: `total` and `per_page` count journals and
+  /// a split group can continue on the next page with the rest of its splits.
+  /// The last group of a page is held back and merged with its continuation,
+  /// so every group is applied once and whole.
   Future<Set<String>?> _pullPages(
     Future<FireflyPage<FireflyTransaction>> Function(int) fetch, {
     int first = 1,
@@ -215,8 +221,14 @@ class _TransactionCycle {
     bool checkpoint = false,
   }) async {
     final seen = <String>{};
+    final refresh = checkpoint || context.pullMode == SyncPullMode.full;
     var total = expectedTotal;
     var count = 0;
+    var groups = 0;
+    FireflyTransaction? held = checkpoint && first > 1
+        ? _decodeHeld(await meta.read(_initialHeld))
+        : null;
+    if (held != null) seen.add(held.id);
     for (var page = first; !cancelled; page++) {
       final response = await fetch(page);
       if (cancelled) return null;
@@ -227,28 +239,79 @@ class _TransactionCycle {
           page > response.totalPages && !(page == 1 && total == 0)) {
         return null;
       }
-      for (final group in response.items) {
-        if (cancelled || !seen.add(group.id)) return null;
-        await _applyGroup(group,
-            refreshContributors:
-                checkpoint || context.pullMode == SyncPullMode.full);
+      final last = page >= response.totalPages;
+      final items = response.items;
+      var journals = 0;
+      for (var index = 0; index < items.length; index++) {
+        var group = items[index];
+        journals += group.splits.length;
+        if (cancelled) return null;
+        if (index == 0 && held != null) {
+          if (group.id == held.id) {
+            group = _mergeSplits(held, group);
+          } else {
+            await _applyGroup(held, refreshContributors: refresh);
+            if (!seen.add(group.id)) return null;
+          }
+          held = null;
+        } else if (!seen.add(group.id)) {
+          return null;
+        }
+        if (index == items.length - 1 && !last) {
+          held = group;
+        } else {
+          await _applyGroup(group, refreshContributors: refresh);
+        }
       }
-      count += response.items.length;
-      if (page >= response.totalPages) {
+      if (last && held != null && !cancelled) {
+        await _applyGroup(held, refreshContributors: refresh);
+        held = null;
+      }
+      count += journals;
+      groups += items.length;
+      // Firefly counts journals; servers that page whole groups count groups.
+      if (last) {
         // On resume, the previous pages were counted and applied before their
         // checkpoint was written.
-        return (first - 1) * response.perPage + count == total ? seen : null;
+        final before = (first - 1) * response.perPage;
+        return before + count == total || before + groups == total
+            ? seen
+            : null;
       }
-      if (response.items.length != response.perPage) return null;
+      if (journals != response.perPage && items.length != response.perPage) {
+        return null;
+      }
       if (checkpoint && !cancelled) {
+        final pending = held;
         await db.transaction(() async {
           await meta.write(SyncMetaRepository.transactionPage, '${page + 1}');
           await meta.write(_initialTotal, '$total');
+          await meta.write(
+              _initialHeld,
+              pending == null
+                  ? ''
+                  : jsonEncode(
+                      {'id': pending.id, 'attributes': pending.attributes}));
         });
       }
     }
     return null;
   }
+
+  static FireflyTransaction? _decodeHeld(String? json) {
+    if (json == null || json.isEmpty) return null;
+    final decoded = jsonDecode(json);
+    return decoded is JsonObject ? FireflyTransaction.fromJson(decoded) : null;
+  }
+
+  static FireflyTransaction _mergeSplits(
+          FireflyTransaction head, FireflyTransaction rest) =>
+      FireflyTransaction(id: rest.id, attributes: {
+        ...rest.attributes,
+        'transactions': [
+          for (final split in [...head.splits, ...rest.splits]) split.fields,
+        ],
+      });
 
   Future<Set<String>> _missingGroups(Set<String> seen,
       {DateTime? start, DateTime? end}) async {

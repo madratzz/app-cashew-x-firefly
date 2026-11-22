@@ -98,7 +98,10 @@ void definePhase3Suite(Future<E2eTarget?> Function(E2eClock clock) open,
 
   tearDownAll(() async {
     if (target == null) return;
-    for (final step in cleanup.reversed) {
+    // FIREFLY_E2E_KEEP=1 leaves the objects on the server for inspection.
+    final keep = Platform.environment['FIREFLY_E2E_KEEP'] == '1';
+    for (final step
+        in keep ? const <Future<void> Function()>[] : cleanup.reversed) {
       try {
         await step();
       } on FireflyNotFound {
