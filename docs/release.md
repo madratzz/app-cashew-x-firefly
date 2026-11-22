@@ -33,6 +33,8 @@ When `ANDROID_KEYSTORE_BASE64` is absent, `scripts/ci/android-signing.sh` genera
 ## Smoke checks
 
 - The macOS job launches the built `.app` for 10 s and fails if it exits. An ad-hoc signed app that still carries `keychain-access-groups` is killed by AMFI at launch, so `scripts/ci/macos-entitlements.sh` removes that key from the working copy unless `APPLE_TEAM_ID` is set. The committed entitlements are unchanged.
+- The Linux job launches the built bundle under `xvfb-run` for 10 s and fails if it exits.
+- The iOS and macOS build jobs stand in for the owner-pending local Xcode builds (`flutter build macos --debug`, `flutter build ios --debug --no-codesign`).
 - The `keychain-macos` and `keychain-ios` jobs run `scripts/ci/integration_test/token_store_smoke_test.dart` (copied into `budget/integration_test/` at CI time only) on macOS and on an iOS simulator. The test writes, reads and deletes the Firefly token through `TokenStore`.
 
 ## Live E2E (deferred)

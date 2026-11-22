@@ -60,7 +60,7 @@ jobs:
         name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev libjsoncpp-dev libsqlite3-dev
+          sudo apt-get install --yes clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev libjsoncpp-dev libsqlite3-dev xvfb
       - if: matrix.target == 'windows'
         name: Install SQLite for host tests
         run: scripts/ci/windows-sqlite.sh
@@ -100,6 +100,9 @@ jobs:
       - if: matrix.target == 'macos'
         name: Launch smoke test
         run: scripts/ci/macos-smoke.sh "$MODE"
+      - if: matrix.target == 'linux'
+        name: Launch smoke test (Xvfb)
+        run: scripts/ci/linux-smoke.sh "$MODE"
       - name: Package
         run: scripts/ci/package.sh "${{ matrix.target }}" "$MODE"
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
