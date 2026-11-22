@@ -683,7 +683,7 @@ class GoogleAccountLoginButtonState extends State<GoogleAccountLoginButton> {
   Widget build(BuildContext context) {
     if (!PlatformCapabilities.supportsGoogleSignIn) {
       // Drive backup has no replacement; the account slot is Firefly login
-      if (widget.forceButtonName != null) return SizedBox.shrink();
+      if (widget.forceButtonName != null) return const SizedBox.shrink();
       return FireflyAccountTile(compact: widget.navigationSidebarButton);
     }
     if (widget.navigationSidebarButton == true) {

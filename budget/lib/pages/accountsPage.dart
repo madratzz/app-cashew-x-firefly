@@ -53,8 +53,8 @@ class AccountsPageState extends State<AccountsPage> {
         listWidgets: [
           const FireflyAccountTile(),
           SettingsHeader(title: "backups".tr()),
-          ExportDB(),
-          ImportDB(),
+          const ExportDB(),
+          const ImportDB(),
         ],
       );
     }
