@@ -4,9 +4,12 @@ import 'package:budget/database/tables.dart';
 import 'package:budget/firefly/api/models/account.dart';
 import 'package:budget/firefly/api/transport.dart';
 import 'package:budget/firefly/db/id_map_repository.dart';
+import 'package:budget/firefly/db/liability_queries.dart';
 import 'package:budget/firefly/db/wallet_queries.dart';
 import 'package:budget/firefly/sync/collection_sync.dart';
 import 'package:budget/firefly/sync/contracts.dart';
+import 'package:budget/firefly/sync/hashing.dart';
+import 'package:drift/drift.dart' show Value;
 
 const _type = FireflyEntityType.walletAccount;
 const _primaryPk = '0';
@@ -33,7 +36,7 @@ class WalletAccountSyncer extends EntitySyncer {
     final cycle = _cycle(context);
     cycle.beginPull();
     await cycle.sync.pull();
-    await cycle.refreshDetails();
+    await cycle.refreshBalances();
     await context.db.repairFireflyWalletSelection();
   }
 
@@ -97,6 +100,7 @@ class _WalletAccounts extends CollectionAdapter<FireflyAccount> {
     final mapped = result.map(_remoteRow);
     for (final row in mapped.items) {
       _listedAccounts[row.id] = row;
+      await _migrateDetailsHash(row);
     }
     return mapped;
   }
@@ -117,7 +121,8 @@ class _WalletAccounts extends CollectionAdapter<FireflyAccount> {
   @override
   Future<List<LocalCollectionRow>> listLocal() async => [
         for (final wallet in await _db.fireflyAssetWallets())
-          if (!await _db.isFireflyWalletPlaceholder(wallet)) _localRow(wallet),
+          if (!await _db.isFireflyWalletPlaceholder(wallet))
+            await _localRow(wallet),
       ];
 
   @override
@@ -172,11 +177,51 @@ class _WalletAccounts extends CollectionAdapter<FireflyAccount> {
       archived: !(remote.fields['active']! as bool),
       now: context.now(),
     );
-    await _db.refreshFireflyAccountDetails(row.walletPk, remote.value);
+    await _db.applyFireflyAccountDetails(row.walletPk, remote.value);
     return _localRow(row);
   }
 
-  Future<void> refreshDetails() async {
+  // Maps from older builds hashed only the wallet columns. Rebase their
+  // baseline before the new fields participate in conflict detection.
+  Future<void> _migrateDetailsHash(
+          RemoteCollectionRow<FireflyAccount> remote) =>
+      _db.transaction(() async {
+        final mapping = await context.idMap.byRemote(type, remote.id);
+        if (mapping == null || mapping.state == FireflySyncState.localOnly) {
+          return;
+        }
+        final wallet = await _db.fireflyWallet(mapping.localPk);
+        if (wallet == null) return;
+        final details = await _db.fireflyAccountDetails(wallet.walletPk);
+        final remoteDetails =
+            fireflyRemoteAccountDetailFields(remote.value, liability: false);
+        final legacyRemote = Map.of(remote.fields)
+          ..removeWhere((key, _) => remoteDetails.containsKey(key));
+        final legacyLocal = _walletFields(wallet);
+        final localWasBaseline =
+            mapping.syncedHash == syncedFieldsHash(legacyLocal);
+        final remoteWasBaseline =
+            mapping.syncedHash == syncedFieldsHash(legacyRemote);
+        if (!localWasBaseline && !remoteWasBaseline) return;
+
+        final modifiedAt = details?.dateTimeModified;
+        final syncedAt = mapping.localVersionAt;
+        final detailsEdited = modifiedAt != null &&
+            syncedAt != null &&
+            modifiedAt.isAfter(syncedAt);
+        if (!remoteWasBaseline && detailsEdited) return;
+        final baseline = remoteWasBaseline ? legacyRemote : legacyLocal;
+        await context.idMap.put(mapping.copyWith(
+          syncedHash: Value(syncedFieldsHash({
+            ...baseline,
+            ...(detailsEdited || details == null
+                ? remoteDetails
+                : fireflyAccountDetailFields(details, liability: false)),
+          })),
+        ));
+      });
+
+  Future<void> refreshBalances() async {
     // Transaction changes can alter the balance without touching updated_at.
     await _db.transaction(() async {
       for (final mapping in await context.idMap.list(type)) {
@@ -186,7 +231,7 @@ class _WalletAccounts extends CollectionAdapter<FireflyAccount> {
             wallet != null &&
             mapping.state != FireflySyncState.localOnly &&
             !await _db.isFireflyWalletPlaceholder(wallet)) {
-          await _db.refreshFireflyAccountDetails(mapping.localPk, account);
+          await _db.refreshFireflyAccountBalance(mapping.localPk, account);
         }
       }
     });
@@ -205,9 +250,8 @@ class _WalletAccounts extends CollectionAdapter<FireflyAccount> {
     }
     await context.api.currencies.enable(currency);
     return _remoteRow(await context.api.accounts.create({
-      ..._writeFields(local),
+      ...fireflyAccountWriteFields(local.fields),
       'type': _asset,
-      'account_role': _defaultRole,
       'currency_code': currency,
     }));
   }
@@ -215,13 +259,17 @@ class _WalletAccounts extends CollectionAdapter<FireflyAccount> {
   @override
   Future<RemoteCollectionRow<FireflyAccount>> updateRemote(
       FireflyIdMapping mapping, LocalCollectionRow local) async {
-    final previous = _listedAccounts[mapping.remoteId];
-    final body = _writeFields(local);
-    if (previous != null) {
-      // Avoid replacing server-only precision or spelling when only order or
-      // another field changed. In particular, Firefly allows longer names.
-      body.removeWhere((key, _) => local.fields[key] == previous.fields[key]);
-      if (body.isEmpty) return previous;
+    final previous = _listedAccounts[mapping.remoteId] ??
+        _remoteRow(await context.api.accounts.get(mapping.remoteId));
+    // Preserve server precision and unrelated values on a partial update.
+    final changed = {
+      for (final entry in local.fields.entries)
+        if (entry.value != previous.fields[entry.key]) entry.key: entry.value,
+    };
+    final body = fireflyAccountWriteFields(changed, update: true);
+    if (body.isEmpty) return previous;
+    if (body['currency_code'] case final String currency) {
+      await context.api.currencies.enable(currency);
     }
     return _remoteRow(
         await context.api.accounts.update(mapping.remoteId, body));
@@ -264,22 +312,31 @@ class _WalletAccounts extends CollectionAdapter<FireflyAccount> {
     }
   }
 
-  LocalCollectionRow _localRow(TransactionWallet wallet) => LocalCollectionRow(
-        pk: wallet.walletPk,
-        modifiedAt: wallet.dateTimeModified,
-        fields: {
-          'name': _name(wallet.name),
-          'currency_code': _currencyCode(wallet.currency),
-          'order': wallet.order,
-          'active': !wallet.archived,
-        },
-        snapshot: {
-          ...wallet.toJson(),
-          'homePageWidgetDisplay': wallet.homePageWidgetDisplay
-              ?.map((widget) => widget.index)
-              .toList(),
-        },
-      );
+  JsonObject _walletFields(TransactionWallet wallet) => {
+        'name': _name(wallet.name),
+        'currency_code': _currencyCode(wallet.currency),
+        'order': wallet.order,
+        'active': !wallet.archived,
+      };
+
+  Future<LocalCollectionRow> _localRow(TransactionWallet wallet) async {
+    final details = await _db.fireflyAccountDetails(wallet.walletPk);
+    return LocalCollectionRow(
+      pk: wallet.walletPk,
+      modifiedAt: fireflyAccountLocalVersion(wallet, details),
+      fields: {
+        ..._walletFields(wallet),
+        ...fireflyAccountDetailFields(details, liability: false),
+      },
+      snapshot: {
+        ...wallet.toJson(),
+        'homePageWidgetDisplay': wallet.homePageWidgetDisplay
+            ?.map((widget) => widget.index)
+            .toList(),
+        if (details != null) 'accountDetails': details.toJson(),
+      },
+    );
+  }
 
   RemoteCollectionRow<FireflyAccount> _remoteRow(FireflyAccount account) {
     final name = account.name;
@@ -297,14 +354,10 @@ class _WalletAccounts extends CollectionAdapter<FireflyAccount> {
         // Firefly orders active accounts from 1; Cashew's UI starts from 0.
         'order': math.max(0, (account.order ?? 1) - 1),
         'active': account.active ?? true,
+        ...fireflyRemoteAccountDetailFields(account, liability: false),
       },
     );
   }
-
-  JsonObject _writeFields(LocalCollectionRow local) => {
-        ...local.fields,
-        'order': (local.fields['order']! as int) + 1,
-      }..removeWhere((_, value) => value == null);
 
   String _name(String name) =>
       String.fromCharCodes(name.trim().runes.take(NAME_LIMIT)).trimRight();
