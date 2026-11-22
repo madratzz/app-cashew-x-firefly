@@ -1,3 +1,5 @@
+import 'package:budget/firefly/db/budget_queries.dart';
+import 'package:budget/firefly/firefly.dart';
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
@@ -505,6 +507,10 @@ Future<DeletePopupAction?> deleteBudgetPopup(
         popRoute(context);
       }
       openLoadingPopupTryCatch(() async {
+        // Record the Firefly delete before the legacy delete removes the row
+        if (FireflyMode.enabled) {
+          await database.fireflyDeleteBudget(budget.budgetPk);
+        }
         await database.deleteBudget(context, budget);
         openSnackbar(
           SnackbarMessage(

@@ -1,4 +1,6 @@
 import 'package:budget/database/tables.dart';
+import 'package:budget/firefly/firefly.dart';
+import 'package:budget/firefly/ui/pages/budgets/budget_limits_page.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/addWalletPage.dart';
@@ -230,6 +232,14 @@ class _AddBudgetPageState extends State<AddBudgetPage> {
   }
 
   Future addBudget() async {
+    if (FireflyMode.enabled &&
+        !fireflyRepresentablePeriod(
+            mapRecurrence(selectedRecurrence), selectedPeriodLength)) {
+      openSnackbar(SnackbarMessage(
+          title: "firefly-budgets-period-unsupported".tr(),
+          icon: Icons.warning_rounded));
+      return;
+    }
     loadingIndeterminateKey.currentState?.setVisibility(true);
     Budget createdBudget = await createBudget();
     print("Added budget");
@@ -360,10 +370,18 @@ class _AddBudgetPageState extends State<AddBudgetPage> {
   @override
   void initState() {
     super.initState();
+    // Firefly budgets are envelopes: added transactions only, expenses only
+    if (FireflyMode.enabled && widget.budget == null) {
+      selectedAddedTransactionsOnly = true;
+      selectedShared = false;
+      selectedIncome = false;
+    }
     Future.delayed(Duration.zero, () async {
       if (widget.budget == null) {
         bool result = await premiumPopupBudgets(context);
-        if (result == true && widget.isAddedOnlyBudget != true) {
+        if (result == true &&
+            widget.isAddedOnlyBudget != true &&
+            !FireflyMode.enabled) {
           dynamic result = await openBottomSheet(
             context,
             fullSnap: false,
@@ -390,7 +408,8 @@ class _AddBudgetPageState extends State<AddBudgetPage> {
       }
 
       allMembersOfAllBudgets = await database.getAllMembersOfBudgets();
-      if (widget.isAddedOnlyBudget) {
+      if (widget.isAddedOnlyBudget ||
+          (FireflyMode.enabled && widget.budget == null)) {
         setAddedTransactionsOnly(true);
         setSelectedShared(false);
       }
@@ -700,6 +719,7 @@ class _AddBudgetPageState extends State<AddBudgetPage> {
           ColumnSliver(
             centered: true,
             children: [
+              if (!FireflyMode.enabled)
               Padding(
                 padding: EdgeInsetsDirectional.symmetric(
                     horizontal: 13 + getHorizontalPaddingConstrained(context)),
@@ -881,6 +901,28 @@ class _AddBudgetPageState extends State<AddBudgetPage> {
                     ),
                   ),
           ),
+          if (FireflyMode.enabled && widget.budget != null)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsetsDirectional.only(
+                  start: 24,
+                  end: 24,
+                  bottom: 15,
+                ),
+                child: SettingsContainer(
+                  key: ValueKey("firefly-budget-limits-entry"),
+                  isOutlined: true,
+                  onTap: () => pushRoute(
+                    context,
+                    FireflyBudgetLimitsPage(budgetPk: widget.budget!.budgetPk),
+                  ),
+                  title: "firefly-budgets-limits-entry".tr(),
+                  icon: Icons.date_range_rounded,
+                  iconScale: 1,
+                  isWideOutlined: true,
+                ),
+              ),
+            ),
           SliverToBoxAdapter(
             child: Container(
               height: 65,
@@ -896,7 +938,7 @@ class _AddBudgetPageState extends State<AddBudgetPage> {
             padding: EdgeInsetsDirectional.symmetric(vertical: 15),
           )),
 
-          widget.budget != null
+          widget.budget != null || FireflyMode.enabled
               ? SliverToBoxAdapter(child: SizedBox.shrink())
               : SliverStickyLabelDivider(
                   info: "budget-type".tr(),
@@ -2341,3 +2383,15 @@ class FilterTypeInfoEntry extends StatelessWidget {
     );
   }
 }
+
+/// Firefly III auto-budget periods: daily, weekly, monthly, quarterly,
+/// half-yearly and yearly.
+bool fireflyRepresentablePeriod(BudgetReoccurence reoccurrence, int length) =>
+    switch (reoccurrence) {
+      BudgetReoccurence.daily ||
+      BudgetReoccurence.weekly ||
+      BudgetReoccurence.yearly =>
+        length == 1,
+      BudgetReoccurence.monthly => const [1, 3, 6].contains(length),
+      BudgetReoccurence.custom => false,
+    };

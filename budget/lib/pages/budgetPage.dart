@@ -1,5 +1,7 @@
 import 'dart:math';
 import 'package:budget/database/tables.dart';
+import 'package:budget/firefly/firefly.dart';
+import 'package:budget/firefly/ui/pages/budgets/budget_limits_page.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addBudgetPage.dart';
 import 'package:budget/pages/addTransactionPage.dart';
@@ -361,6 +363,19 @@ class _BudgetPageContentState extends State<_BudgetPageContent> {
                     pushRoute(
                       context,
                       PastBudgetsPage(budgetPk: widget.budget.budgetPk),
+                    );
+                  },
+                ),
+              if (FireflyMode.enabled)
+                DropdownItemMenu(
+                  id: "firefly-budget-limits",
+                  label: "firefly-budgets-limits-title".tr(),
+                  icon: Icons.date_range_rounded,
+                  action: () {
+                    pushRoute(
+                      context,
+                      FireflyBudgetLimitsPage(
+                          budgetPk: widget.budget.budgetPk),
                     );
                   },
                 ),

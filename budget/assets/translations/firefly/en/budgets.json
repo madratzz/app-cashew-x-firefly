@@ -1,0 +1,23 @@
+{
+  "firefly-budgets-limits-title": "Limits per period",
+  "firefly-budgets-limits-entry": "Firefly limits per period",
+  "firefly-budgets-limits-empty": "No limits yet. Add one for the period you want to budget.",
+  "firefly-budgets-limit-add": "Add limit",
+  "firefly-budgets-limit-edit": "Edit limit",
+  "firefly-budgets-limit-amount": "Amount",
+  "firefly-budgets-limit-start": "Start",
+  "firefly-budgets-limit-end": "End",
+  "firefly-budgets-limit-save": "Save",
+  "firefly-budgets-limit-cancel": "Cancel",
+  "firefly-budgets-limit-delete": "Delete limit",
+  "firefly-budgets-limit-invalid-amount": "Enter an amount above zero",
+  "firefly-budgets-limit-invalid-range": "The end must not be before the start",
+  "firefly-budgets-available-title": "Available budget",
+  "firefly-budgets-available-empty": "The server reports no available budget",
+  "firefly-budgets-available-readonly": "Set on the Firefly III server",
+  "firefly-budgets-picker": "Budget",
+  "firefly-budgets-picker-none": "No budget",
+  "firefly-budgets-picker-hint": "Applies to withdrawals",
+  "firefly-budgets-envelope-info": "Firefly budgets hold only the transactions you add to them",
+  "firefly-budgets-period-unsupported": "Firefly III supports daily, weekly, monthly, quarterly, half-yearly and yearly budgets"
+}
