@@ -1149,7 +1149,7 @@ class _AddTransactionPageState extends State<AddTransactionPage>
             setSelectedNoteController: setSelectedNoteController,
           ),
         ),
-        FireflyTransactionExtras(draft: fireflyDraft),
+        FireflyTransactionExtras(draft: fireflyDraft..income = selectedIncome),
       ],
     );
 

@@ -9,6 +9,10 @@ class FireflyTransactionDraft {
   FireflyTransactionDraft(this.db);
 
   final FinanceDatabase db;
+
+  /// Direction of the transaction being edited, set by the add-transaction
+  /// page. Not persisted; the legacy row stores it.
+  bool? income;
   String? payeePk;
   Set<String> tagPks = {};
   double? foreignAmount;
