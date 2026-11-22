@@ -1,3 +1,4 @@
+import 'package:budget/platform/capabilities.dart';
 import 'dart:async';
 
 import 'package:budget/functions.dart';
@@ -207,7 +208,8 @@ Future<bool> shareFeedback(String feedbackText, String feedbackType,
   bool error = false;
 
   try {
-    if ((selectedStars ?? 0) >= 4) {
+    if ((selectedStars ?? 0) >= 4 &&
+        PlatformCapabilities.supportsInAppReview) {
       if (await inAppReview.isAvailable()) inAppReview.requestReview();
     }
   } catch (e) {

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:budget/functions.dart';
+import 'package:budget/platform/capabilities.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/globalSnackbar.dart';
 import 'package:budget/widgets/openSnackbar.dart';
@@ -127,8 +128,49 @@ Future<bool> saveFile({
     }
   }
 
+  // On desktop -> Ask where to save with the native save dialog
+  if (PlatformCapabilities.isDesktop && customDirectory == null) {
+    try {
+      String? filePath = await FilePicker.platform
+          .saveFile(fileName: fileName, dialogTitle: fileName);
+      if (filePath == null) {
+        openSnackbar(SnackbarMessage(
+          title: errorMessage.tr(),
+          description: "no-folder-selected".tr(),
+          icon: appStateSettings["outlinedIcons"]
+              ? Icons.warning_outlined
+              : Icons.warning_rounded,
+        ));
+        return false;
+      }
+      File savedFile = File(filePath);
+      if (dataStore != null) {
+        await savedFile.writeAsBytes(dataStore);
+      } else if (dataString != null) {
+        await savedFile.writeAsString(dataString);
+      }
+      openSnackbar(SnackbarMessage(
+        title: successMessage.tr(),
+        description: filePath,
+        icon: appStateSettings["outlinedIcons"]
+            ? Icons.download_done_outlined
+            : Icons.download_done_rounded,
+        timeout: Duration(milliseconds: 5000),
+      ));
+      return true;
+    } catch (e) {
+      print("Error saving file to device: " + e.toString());
+      // Fall through to the downloads folder below
+    }
+  }
+
   try {
     String directory = customDirectory ??
+        (PlatformCapabilities.isDesktop
+            ? ((await getDownloadsDirectory()) ??
+                    await getApplicationDocumentsDirectory())
+                .path
+            : null) ??
         (getPlatform() == PlatformOS.isAndroid
             ? "/storage/emulated/0/Download"
             : (await getApplicationDocumentsDirectory()).path);

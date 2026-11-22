@@ -1,3 +1,4 @@
+import 'package:budget/platform/capabilities.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addTransactionPage.dart';
@@ -14,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 Future<String?> initializeNotifications() async {
+  if (PlatformCapabilities.supportsLocalNotifications == false) return null;
   // Since iOS cannot send scheduled notifications when the app is open
   // There is no need to listen to incoming notification payloads
   if (getPlatform(ignoreEmulation: true) != PlatformOS.isIOS) {
@@ -27,6 +29,7 @@ Future<String?> initializeNotifications() async {
         InitializationSettings(
       android: initializationSettingsAndroid,
       iOS: initializationSettingsDarwin,
+      macOS: initializationSettingsDarwin,
     );
     await flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
@@ -64,7 +67,7 @@ runNotificationPayLoadsNoContext() {
 
 Future<bool> runNotificationPayLoads(context) async {
   print("Notification payload: " + notificationPayload.toString());
-  if (kIsWeb) return false;
+  if (PlatformCapabilities.supportsLocalNotifications == false) return false;
   if (notificationPayload == null) return false;
   if (notificationPayload == "addTransaction") {
     // Add a delay so the keyboard can focus
@@ -106,7 +109,7 @@ Future<bool> runNotificationPayLoads(context) async {
 }
 
 Future<void> setDailyNotifications(context) async {
-  if (kIsWeb) return;
+  if (PlatformCapabilities.supportsLocalNotifications == false) return;
   bool notificationsEnabled = appStateSettings["notifications"] == true;
 
   if (notificationsEnabled) {
@@ -130,7 +133,7 @@ Future<void> setDailyNotifications(context) async {
 }
 
 Future<void> setUpcomingNotifications(context) async {
-  if (kIsWeb) return;
+  if (PlatformCapabilities.supportsLocalNotifications == false) return;
   bool upcomingTransactionsNotificationsEnabled =
       appStateSettings["notificationsUpcomingTransactions"] == true;
   if (upcomingTransactionsNotificationsEnabled) {

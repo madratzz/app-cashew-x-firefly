@@ -1,3 +1,4 @@
+import 'package:budget/platform/capabilities.dart';
 import 'package:animations/animations.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/struct/settings.dart';
@@ -25,7 +26,7 @@ Future<AuthResult> checkBiometrics({
   bool checkAlways = false,
 }) async {
   try {
-    if (kIsWeb) {
+    if (PlatformCapabilities.supportsBiometrics == false) {
       authAvailable = false;
       await updateSettings("requireAuth", false, updateGlobalState: false);
       return AuthResult.authenticated;

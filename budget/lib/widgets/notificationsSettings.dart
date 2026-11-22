@@ -1,3 +1,4 @@
+import 'package:budget/platform/capabilities.dart';
 import 'dart:io';
 import 'dart:math';
 
@@ -534,10 +535,25 @@ Future<bool> checkNotificationsPermissionAndroid() async {
   return true;
 }
 
+Future<bool> checkNotificationsPermissionMacOS() async {
+  bool? result = await flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+          MacOSFlutterLocalNotificationsPlugin>()
+      ?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+  if (result != true) return false;
+  return true;
+}
+
 Future<bool> checkNotificationsPermissionAll() async {
+  if (PlatformCapabilities.supportsLocalNotifications == false) return false;
   try {
     if (Platform.isAndroid) return await checkNotificationsPermissionAndroid();
     if (Platform.isIOS) return await checkNotificationsPermissionIOS();
+    if (Platform.isMacOS) return await checkNotificationsPermissionMacOS();
   } catch (e) {
     print("Error setting up notifications: " + e.toString());
     return false;
