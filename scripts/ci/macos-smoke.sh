@@ -5,7 +5,7 @@ set -euo pipefail
 if [[ "$1" == release ]]; then Mode=Release; else Mode=Debug; fi
 app="$(ls -d budget/build/macos/Build/Products/$Mode/*.app | head -n1)"
 codesign -d --entitlements - "$app" 2>/dev/null || true
-exe="$app/Contents/MacOS/$(defaults read "$app/Contents/Info" CFBundleExecutable)"
+exe="$app/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")"
 "$exe" &
 pid=$!
 sleep 10

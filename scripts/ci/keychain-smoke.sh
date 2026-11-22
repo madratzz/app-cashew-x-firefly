@@ -13,4 +13,9 @@ else
   xcrun simctl boot "$device"
   xcrun simctl bootstatus "$device" -b
 fi
-flutter test integration_test/token_store_smoke_test.dart -d "$device"
+log="${RUNNER_TEMP:-/tmp}/keychain-smoke.log"
+if ! flutter test integration_test/token_store_smoke_test.dart -d "$device" --verbose > "$log" 2>&1; then
+  grep -v "Localization key" "$log" | tail -150
+  exit 1
+fi
+grep -E "All tests passed|tests? passed" "$log" | tail -3
