@@ -45,14 +45,14 @@ jobs:
       matrix:
         include:
           - { target: android, os: ubuntu-latest, test: false }
-          - { target: ios, os: macos-14, test: false }
-          - { target: macos, os: macos-14, test: true }
+          - { target: ios, os: macos-15, test: false }
+          - { target: macos, os: macos-15, test: true }
           - { target: linux, os: ubuntu-latest, test: true }
           - { target: windows, os: windows-latest, test: true }
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - if: matrix.target == 'android'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -66,7 +66,7 @@ jobs:
       - run: flutter pub get --enforce-lockfile
         working-directory: budget
       - if: matrix.test
-        run: flutter test
+        run: flutter test --reporter expanded
         working-directory: budget
       - if: matrix.target == 'android' && env.MODE == 'release'
         name: Configure Android signing
@@ -88,7 +88,7 @@ jobs:
           esac
       - name: Package
         run: scripts/ci/package.sh "${{ matrix.target }}" "$MODE"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: cashew-${{ matrix.target }}-${{ env.MODE }}
           path: dist/*
