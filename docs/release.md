@@ -34,12 +34,18 @@ When `ANDROID_KEYSTORE_BASE64` is absent, `scripts/ci/android-signing.sh` genera
 
 - The macOS job launches the built `.app` for 10 s and fails if it exits. An ad-hoc signed app that still carries `keychain-access-groups` is killed by AMFI at launch, so `scripts/ci/macos-entitlements.sh` removes that key from the working copy unless `APPLE_TEAM_ID` is set. The committed entitlements are unchanged.
 - The Linux job launches the built bundle under `xvfb-run` for 10 s and fails if it exits.
-- The iOS and macOS build jobs stand in for the owner-pending local Xcode builds (`flutter build macos --debug`, `flutter build ios --debug --no-codesign`).
+- The iOS and macOS build jobs replace local Xcode builds.
 - The `keychain-macos` and `keychain-ios` jobs run `scripts/ci/integration_test/token_store_smoke_test.dart` (copied into `budget/integration_test/` at CI time only) on macOS and on an iOS simulator. The test writes, reads and deletes the Firefly token through `TokenStore`.
 
-## Live E2E (deferred)
+## End-to-end checks
 
-The Docker Firefly III E2E job is deferred to WP-49 (orchestrator decision; `docker/firefly/up.sh` is being fixed in WP-39). `scripts/ci/firefly-e2e.sh` is ready for it: it starts the stack, masks the minted token, runs `test/firefly/e2e/live_e2e_test.dart` with `FIREFLY_ALLOW_HTTP=true` and always runs `down.sh`.
+`.github/workflows/e2e.yml` runs on every pull request and on manual dispatch:
+
+- `docker-e2e` (Ubuntu) starts the disposable Firefly III with `docker/firefly/up.sh`, masks the minted token, and through `scripts/ci/firefly-e2e.sh host` runs the live Phase 1, 2 and 3 suites one after another, the A1-A7 probe (`tool/firefly_probe/probe.py --container`), and `integration_test/final/attachments_device_test.dart` on Linux desktop under Xvfb. `down.sh` always runs.
+- `attachments-android` boots an API 34 emulator, starts its own Docker server, forwards the port with `adb reverse` and runs the attachment test on the emulator (`firefly-e2e.sh android`).
+- `attachments-macos` and `attachments-ios` run the attachment test on macOS and an iOS simulator against the emulated server (`scripts/ci/attachments-smoke.sh`); hosted macOS runners have no Docker.
+
+The attachment test writes a binary file on the device, attaches it, syncs, then compares the bytes downloaded from the server and through a second device.
 
 ## Action pinning
 

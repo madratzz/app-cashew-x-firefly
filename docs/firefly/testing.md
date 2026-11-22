@@ -16,6 +16,7 @@ Run every command from `budget/` with the pinned Flutter (`fvm flutter`).
 | Phase 3 E2E, live server | `test/firefly/e2e/phase3/live_phase3_e2e_test.dart` (tag `live`) | `FIREFLY_E2E_URL`, `FIREFLY_E2E_TOKEN` | Yes, skipped when unset |
 | Phase 3 seams (in-place saves, tag links on delete, conflict reapply, payee direction, phone width) | `test/firefly/e2e/phase3/*_test.dart` | Nothing | Yes |
 | On-device E2E | `integration_test/firefly_phase1_test.dart`, `integration_test/phase2/firefly_phase2_test.dart`, `integration_test/phase3/firefly_phase3_test.dart` | A device or desktop target | No: `fvm flutter test integration_test -d <device>` |
+| Attachment round trip on a device | `integration_test/final/attachments_device_test.dart` | A device or desktop target; live when `FIREFLY_E2E_URL` and `FIREFLY_E2E_TOKEN` are passed with `--dart-define` | No: CI `e2e.yml` runs it on Linux, Android, macOS and iOS |
 
 The emulated and live runs share one scenario file, `test/firefly/e2e/support/phase1_suite.dart`. It drives the real `SyncEngine`, the default syncer registry and `HttpFireflyTransport` over HTTP. The tests run in order against one server and one device:
 
@@ -85,12 +86,17 @@ FIREFLY_BASE_URL=$FIREFLY_E2E_URL FIREFLY_API_TOKEN=$FIREFLY_E2E_TOKEN \
   python3 tool/firefly_probe/probe.py --disposable --container cashew-firefly-e2e-app-1
 ```
 
+## In CI
+
+`.github/workflows/e2e.yml` (see `docs/release.md`) runs the live Phase 1, 2 and 3 suites, the A1-A7 probe and the device attachment test against a disposable Docker Firefly III on every pull request. Locally, `scripts/ci/firefly-e2e.sh host` does the same on a Linux machine with Docker and Xvfb.
+
 ## Status
 
 | Item | Status |
 |---|---|
 | Emulated Phase 1, 2 and 3 E2E | Passing |
-| Live Phase 1, 2 and 3 E2E | Passing against a disposable Firefly III 6.6.2 (2026-11-22, WP-39): 6/6, 6/6 and 4/4 |
-| A1–A7 live verification | Recorded in `API-NOTES.md`. A6 is still open (the server answers 500), so its fallback stays |
-| `up.sh` token minting (A7) | Fixed for 6.6.2 with `mint.php`; not yet run through `up.sh` end to end on a Docker host |
-| Legacy flow with mode off (acceptance 7) | Covered by the existing hook tests and `seams_test.dart` at the database and settings level. A full UI run (onboarding, add transaction, backup export) on a device is still manual |
+| Live Phase 1, 2 and 3 E2E | Passing in CI (`docker-e2e`) against a disposable Firefly III 6.6.2 |
+| A1-A7 live verification | Recorded in `API-NOTES.md` and rerun in CI. A6 is unsupported by the server (HTTP 500), so its fallback stays |
+| `up.sh` token minting (A7) | Runs end to end in CI |
+| Attachments on a device | `attachments_device_test.dart` in CI on Linux and Android (live) and macOS and iOS (emulated) |
+| Legacy flow with mode off (acceptance 7) | Covered by the existing hook tests and `seams_test.dart` at the database and settings level, and by the launch smoke tests on macOS and Linux |
