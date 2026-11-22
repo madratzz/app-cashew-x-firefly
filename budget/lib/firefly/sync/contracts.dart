@@ -108,6 +108,17 @@ abstract class TransactionContributor {
   Future<void> push(
       SyncContext context, Transaction transaction, JsonObject split) async {}
 
+  /// Adds fields to a write, or defers the write until dependencies are ready.
+  Future<bool> pushSplitWrite(
+    SyncContext context,
+    Transaction row,
+    JsonObject fields, {
+    FireflyTransactionSplit? prior,
+  }) async {
+    await push(context, row, fields);
+    return true;
+  }
+
   /// Adds owned fields to the hash of a local row or a projected remote row.
   /// Remote fields can be used directly for relationships stored separately.
   Future<void> contributeHash(

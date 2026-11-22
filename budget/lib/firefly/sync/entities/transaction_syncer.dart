@@ -1152,7 +1152,10 @@ class _TransactionCycle {
       preferred
     ]) {
       for (final contributor in transactionContributors) {
-        await contributor.push(context, entry.row, fields);
+        if (!await contributor.pushSplitWrite(context, entry.row, fields,
+            prior: remote)) {
+          return null;
+        }
       }
     }
     return fields;
