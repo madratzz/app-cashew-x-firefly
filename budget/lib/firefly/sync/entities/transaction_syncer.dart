@@ -951,11 +951,13 @@ class _TransactionCycle {
     return drafts;
   }
 
+  // Unpaid regular rows are upcoming entries. Loan exclusions still apply
+  // regardless of their paid flag.
   bool _eligible(Transaction row) =>
       row.type != TransactionSpecialType.credit &&
       row.type != TransactionSpecialType.debt &&
       row.objectiveLoanFk == null &&
-      (row.type == null || row.paid);
+      row.paid;
 
   Future<_LocalRow> _localRow(
           Transaction row, FireflyIdMapping? mapping) async =>

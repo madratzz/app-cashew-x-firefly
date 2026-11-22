@@ -43,8 +43,14 @@ class WalletAccountSyncer extends EntitySyncer {
   @override
   Future<void> push(SyncContext context) async {
     if (!context.config.mode || context.isCancelled()) return;
-    await _cycle(context).sync.push();
+    await pushForBootstrap(context);
     await context.db.repairFireflyWalletSelection();
+  }
+
+  /// Push against the upload snapshot without changing the app's wallet selection.
+  Future<void> pushForBootstrap(SyncContext context) async {
+    if (!context.config.mode || context.isCancelled()) return;
+    await _cycle(context).sync.push();
   }
 
   @override

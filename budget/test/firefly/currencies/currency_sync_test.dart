@@ -232,6 +232,7 @@ void main() {
             name: 'New withdrawal',
             note: '',
             amount: -8,
+            paid: const Value(true),
             categoryFk: 'food',
             walletFk: const Value('wallet'),
             dateCreated: Value(now),

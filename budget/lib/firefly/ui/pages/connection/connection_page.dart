@@ -1,10 +1,16 @@
 import 'dart:io';
 
 import 'package:budget/database/tables.dart';
+import 'package:budget/firefly/api/firefly_api.dart';
+import 'package:budget/firefly/api/http_transport.dart';
 import 'package:budget/firefly/config/config.dart';
+import 'package:budget/firefly/db/wallet_queries.dart';
 import 'package:budget/firefly/firefly.dart';
+import 'package:budget/firefly/sync/bootstrap_upload.dart';
+import 'package:budget/firefly/sync/contracts.dart';
 import 'package:budget/firefly/ui/pages/connection/conflicts_page.dart';
 import 'package:budget/firefly/ui/pages/connection/sync_issues_page.dart';
+import 'package:budget/firefly/ui/pages/connection/upload_flow.dart';
 import 'package:budget/firefly/ui/settings/connection_controller.dart';
 import 'package:budget/firefly/ui/settings/sync_status.dart';
 import 'package:budget/struct/settings.dart';
@@ -20,6 +26,8 @@ Future<Directory> _defaultBackupDirectory() async => Directory(
 
 /// Width cap so the form stays readable on desktop windows.
 const fireflyPageMaxWidth = 720.0;
+
+enum _FirstConnection { upload, replace, abandon }
 
 class FireflyConnectionPage extends StatefulWidget {
   const FireflyConnectionPage({
@@ -133,8 +141,60 @@ class FireflyConnectionPageState extends State<FireflyConnectionPage> {
 
   /// Turns the mode on, running the replace flow on a first connection.
   Future<void> _enableMode() async {
-    if (await FireflyReplaceFlow.isFirstConnection(_db)) {
+    final uploading = await FireflyBootstrapUpload.inProgress(_db);
+    if (uploading || await FireflyReplaceFlow.isFirstConnection(_db)) {
       if (!mounted) return;
+      final choice = await showDialog<_FirstConnection>(
+        context: context,
+        builder: (context) => SimpleDialog(
+          title: Text('firefly-upload-first-choice'.tr()),
+          children: [
+            if (uploading)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text('firefly-upload-in-progress'.tr()),
+              ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, _FirstConnection.upload),
+              child: Text((uploading
+                      ? 'firefly-upload-resume'
+                      : 'firefly-upload-choice')
+                  .tr()),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(
+                  context,
+                  uploading
+                      ? _FirstConnection.abandon
+                      : _FirstConnection.replace),
+              child: Text((uploading
+                      ? 'firefly-upload-abandon'
+                      : 'firefly-upload-replace-choice')
+                  .tr()),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context),
+              child: Text('firefly-connection-cancel'.tr()),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || choice == null) return;
+      if (choice == _FirstConnection.abandon) {
+        await _abandonUpload();
+        return;
+      }
+      if (choice == _FirstConnection.upload) {
+        if (!await _openUpload()) return;
+        await _db.repairFireflyWalletSelection();
+        await FireflyMode.refreshToken();
+        await _controller.setMode(true);
+        await FireflyBootstrapUpload.finishHandoff(_db);
+        if (mounted) setState(() {});
+        FireflySync.syncNow(fullResync: true);
+        return;
+      }
+
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
@@ -168,14 +228,77 @@ class FireflyConnectionPageState extends State<FireflyConnectionPage> {
       _setStatus('firefly-connection-replace-done'
           .tr(namedArgs: {'path': backup.path}));
     }
+    await FireflyMode.refreshToken();
     await _controller.setMode(true);
     if (mounted) setState(() {});
     FireflySync.syncNow(fullResync: true);
   }
 
+  Future<bool> _openUpload() async {
+    final config = FireflyMode.config;
+    try {
+      // Pin this run to the server and credential the user saved.
+      final token = await _controller.tokens.read();
+      if (!mounted || token == null || token.isEmpty) return false;
+      final transport = _controller.transportFactory(
+          normalizeFireflyUrl(config.baseUrl), () async => token);
+      try {
+        final result = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (_) => FireflyUploadFlow(
+              upload: FireflyBootstrapUpload(
+                SyncContext(
+                  db: _db,
+                  api: FireflyApi(transport),
+                  config: config,
+                  isCancelled: () => FireflyMode.config.mode,
+                ),
+              ),
+            ),
+          ),
+        );
+        return result == true;
+      } finally {
+        if (transport is HttpFireflyTransport) transport.close();
+      }
+    } catch (_) {
+      _setStatus('firefly-upload-unverified'.tr(), error: true);
+      return false;
+    }
+  }
+
+  Future<void> _abandonUpload() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('firefly-upload-abandon'.tr()),
+        content: Text('firefly-upload-abandon-warning'.tr()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('firefly-connection-cancel'.tr()),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('firefly-upload-abandon'.tr()),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await FireflyBootstrapUpload.abandon(_db);
+    } on FireflyUploadIssue catch (issue) {
+      _setStatus(issue.message.tr(), error: true);
+    }
+  }
+
   Future<void> _toggleMode(bool value) => _run(() async {
         if (value) {
           await _enableMode();
+          if (widget.onboarding && mounted && FireflyMode.config.mode) {
+            Navigator.of(context).pop(true);
+          }
         } else {
           await _controller.setMode(false);
           if (mounted) setState(() {});
