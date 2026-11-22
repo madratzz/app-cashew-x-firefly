@@ -28,6 +28,7 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     {required bool live}) {
   final clock = E2eClock(live: live);
   E2eTarget? target;
+  E2eServerSnapshot? snapshot;
   late E2eDevice device;
   late String checkingId;
   late String shopId;
@@ -36,6 +37,7 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
   setUpAll(() async {
     target = await open(clock);
     if (target == null) return;
+    if (live) snapshot = await E2eServerSnapshot.take(target!);
     device = E2eDevice(target!, clock);
     final existing = await device.admin.transactions.list(limit: 1);
     if (existing.total > 0) {
@@ -75,6 +77,7 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
 
   tearDownAll(() async {
     if (target == null) return;
+    await snapshot?.restore();
     await device.close();
     await target!.close();
   });
@@ -126,8 +129,7 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
       await meta.write(
           SyncMetaRepository.contributorVersion(contributor.id), '0');
     }
-    final lastFull =
-        await meta.readDate(SyncMetaRepository.lastFullReconcile);
+    final lastFull = await meta.readDate(SyncMetaRepository.lastFullReconcile);
 
     await clock.tick();
     final before = fullListings();
@@ -151,8 +153,7 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     if (!live) expect(fullListings(), again);
   });
 
-  test('budgets with limits and assignments sync in both directions',
-      () async {
+  test('budgets with limits and assignments sync in both directions', () async {
     if (skip()) return;
     await clock.tick();
     final now = clock.now();
@@ -189,8 +190,8 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     await sync();
 
     final budgetId = (await device.remoteId(_budget, local.budgetPk))!;
-    expect((await device.admin.budgets.get(budgetId)).name,
-        'E2E2 Local budget');
+    expect(
+        (await device.admin.budgets.get(budgetId)).name, 'E2E2 Local budget');
     final limits = (await device.admin.budgets.listLimits(budgetId)).items;
     expect(limits.map((limit) => limit.amount), [150]);
     final groupId = (await device.remoteId(_transaction, withdrawal))!;
@@ -224,8 +225,8 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     await clock.tick();
     await sync();
     final remotePk = (await device.localPk(_budget, remote.id))!;
-    expect((await device.db.fireflyBudget(remotePk))!.name,
-        'E2E2 Server budget');
+    expect(
+        (await device.db.fireflyBudget(remotePk))!.name, 'E2E2 Server budget');
     expect(remoteLimit.amount, 60);
     final pulled = await device.db.fireflyBudgetLimits(remotePk);
     expect(pulled.map((limit) => limit.amount), [60]);
@@ -383,8 +384,8 @@ void definePhase2Suite(Future<E2eTarget?> Function(E2eClock clock) open,
           in ResourceCacheRepository.decode(cached)['repetitions'] as List)
         {...(repetition as JsonObject), 'moment': '3'},
     ];
-    await device.db.saveFireflyRecurrence(
-        {'repetitions': repetitions}, pk: recurrencePk);
+    await device.db
+        .saveFireflyRecurrence({'repetitions': repetitions}, pk: recurrencePk);
 
     final cycle = await device.sync();
     final mapping =

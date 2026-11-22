@@ -23,8 +23,9 @@ const _bill = FireflyEntityType.bill;
 const _payee = FireflyEntityType.payeeAccount;
 
 /// The Phase 3 acceptance flow (PLAN.md WP-39). Tests share one server and
-/// two devices and run in order. Every object carries a per-run suffix and
-/// is deleted at the end, so the suite also runs on a server that keeps data.
+/// two devices and run in order. Every object carries a per-run suffix, and
+/// a live run deletes what it created, so it also runs on a server that keeps
+/// data.
 void definePhase3Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     {required bool live}) {
   final clock = E2eClock(live: live);
@@ -40,7 +41,7 @@ void definePhase3Suite(Future<E2eTarget?> Function(E2eClock clock) open,
   late String budgetId;
   late String billId;
   String? richGroupId;
-  final cleanup = <Future<void> Function()>[];
+  E2eServerSnapshot? snapshot;
 
   setUpAll(() async {
     target = await open(clock);
@@ -54,6 +55,7 @@ void definePhase3Suite(Future<E2eTarget?> Function(E2eClock clock) open,
         .setMockMethodCallHandler(
             const MethodChannel('plugins.flutter.io/path_provider'),
             (_) async => support.path);
+    if (live) snapshot = await E2eServerSnapshot.take(target!);
     device = E2eDevice(target!, clock);
     second = E2eDevice(target!, clock);
     final admin = device.admin;
@@ -66,7 +68,6 @@ void definePhase3Suite(Future<E2eTarget?> Function(E2eClock clock) open,
       'opening_balance_date': formatFireflyDate(clock.now()),
     }))
         .id;
-    cleanup.add(() => admin.accounts.delete(checkingId));
     loanId = (await admin.accounts.create({
       'name': named('Loan'),
       'type': 'liabilities',
@@ -79,11 +80,8 @@ void definePhase3Suite(Future<E2eTarget?> Function(E2eClock clock) open,
       'interest_period': 'yearly',
     }))
         .id;
-    cleanup.add(() => admin.accounts.delete(loanId));
     categoryId = (await admin.categories.create({'name': named('Food')})).id;
-    cleanup.add(() => admin.categories.delete(categoryId));
     budgetId = (await admin.budgets.create({'name': named('Groceries')})).id;
-    cleanup.add(() => admin.budgets.delete(budgetId));
     billId = (await admin.bills.create({
       'name': named('Market'),
       'amount_min': '1.00',
@@ -93,21 +91,11 @@ void definePhase3Suite(Future<E2eTarget?> Function(E2eClock clock) open,
       'currency_code': 'USD',
     }))
         .id;
-    cleanup.add(() => admin.bills.delete(billId));
   });
 
   tearDownAll(() async {
     if (target == null) return;
-    // FIREFLY_E2E_KEEP=1 leaves the objects on the server for inspection.
-    final keep = Platform.environment['FIREFLY_E2E_KEEP'] == '1';
-    for (final step
-        in keep ? const <Future<void> Function()>[] : cleanup.reversed) {
-      try {
-        await step();
-      } on FireflyNotFound {
-        // Already gone, for example through an account cascade.
-      }
-    }
+    await snapshot?.restore();
     await device.close();
     await second.close();
     await target!.close();
@@ -182,13 +170,7 @@ void definePhase3Suite(Future<E2eTarget?> Function(E2eClock clock) open,
 
     final remote = await remoteSplit(pk);
     richGroupId = remote.groupId;
-    cleanup.add(() => device.admin.transactions.delete(remote.groupId));
     final payeeId = (await device.remoteId(_payee, payee.payeePk))!;
-    cleanup.add(() => device.admin.accounts.delete(payeeId));
-    for (final tag in [fresh, weekly]) {
-      final id = await device.remoteId(FireflyEntityType.tag, tag.tagPk);
-      if (id != null) cleanup.add(() => device.admin.tags.delete(id));
-    }
     final split = remote.split;
     expect(split.destinationId, payeeId);
     expect(split.fields['tags'], unorderedEquals([fresh.name, weekly.name]));
@@ -201,7 +183,6 @@ void definePhase3Suite(Future<E2eTarget?> Function(E2eClock clock) open,
         .where((item) => item.attachableId == split.journalId)
         .toList();
     expect(uploaded.map((item) => item.filename), ['receipt.txt']);
-    cleanup.add(() => device.admin.attachments.delete(uploaded.single.id));
 
     await sync(second);
     final otherPk = (await second.localPk(_transaction, remote.groupId,
@@ -247,7 +228,6 @@ void definePhase3Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     await sync();
 
     final remote = await remoteSplit(anchor);
-    cleanup.add(() => device.admin.transactions.delete(remote.groupId));
     expect(remote.group.groupTitle, named('Market'));
     expect(remote.group.splits.map((split) => split.amount),
         unorderedEquals([10.0, 8.0, 12.0]));
@@ -305,7 +285,6 @@ void definePhase3Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     await clock.tick();
     await sync();
     final remote = await remoteSplit(out);
-    cleanup.add(() => device.admin.transactions.delete(remote.groupId));
     // Firefly books asset to liability as a withdrawal; Cashew shows the
     // local transfer pair.
     expect(remote.split.type, 'withdrawal');

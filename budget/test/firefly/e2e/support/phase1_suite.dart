@@ -17,12 +17,14 @@ void definePhase1Suite(Future<E2eTarget?> Function(E2eClock clock) open,
     {required bool live}) {
   final clock = E2eClock(live: live);
   E2eTarget? target;
+  E2eServerSnapshot? snapshot;
   late E2eDevice device;
   late E2eSeed seed;
 
   setUpAll(() async {
     target = await open(clock);
     if (target == null) return;
+    if (live) snapshot = await E2eServerSnapshot.take(target!);
     device = E2eDevice(target!, clock);
     final existing = await device.admin.transactions.list(limit: 1);
     if (existing.total > 0) {
@@ -34,6 +36,7 @@ void definePhase1Suite(Future<E2eTarget?> Function(E2eClock clock) open,
 
   tearDownAll(() async {
     if (target == null) return;
+    await snapshot?.restore();
     await device.close();
     await target!.close();
   });

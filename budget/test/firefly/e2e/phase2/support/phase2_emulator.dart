@@ -119,10 +119,9 @@ class Phase2Emulator extends FireflyEmulator {
     if (normalized.startsWith('/recurrences/')) {
       for (final repetition
           in (body['repetitions'] as List<Object?>? ?? const [])) {
-        if (repetition is JsonObject &&
-            rejectedMoment(repetition['moment'])) {
-          requests.add(
-              (method: 'PUT', path: normalized, query: query, body: body));
+        if (repetition is JsonObject && rejectedMoment(repetition['moment'])) {
+          requests
+              .add((method: 'PUT', path: normalized, query: query, body: body));
           throw const FireflyValidation('The moment field is invalid.',
               errors: {
                 'repetitions.0.moment': ['The moment field is invalid.'],

@@ -322,3 +322,62 @@ class _LoopbackClient extends http.BaseClient {
   @override
   void close() => _inner.close();
 }
+
+/// The ids on the server before a run, so the run can delete what it created
+/// and leave everything else alone. FIREFLY_E2E_KEEP=1 skips the cleanup.
+class E2eServerSnapshot {
+  E2eServerSnapshot._(this._transport, this._before);
+
+  // Dependants first: deleting an account also deletes its journals.
+  static const _collections = [
+    '/transactions',
+    '/recurrences',
+    '/piggy-banks',
+    '/bills',
+    '/budgets',
+    '/attachments',
+    '/tags',
+    '/categories',
+    '/rules',
+    '/rule-groups',
+    '/accounts',
+  ];
+
+  final FireflyTransport _transport;
+  final Map<String, Set<String>> _before;
+
+  static Future<E2eServerSnapshot> take(E2eTarget target) async {
+    final transport = target.transport();
+    return E2eServerSnapshot._(transport, {
+      for (final path in _collections) path: await _ids(transport, path),
+    });
+  }
+
+  static Future<Set<String>> _ids(
+      FireflyTransport transport, String path) async {
+    final ids = <String>{};
+    for (var page = 1;; page++) {
+      final response = await transport.getPage(path, query: {
+        'page': '$page',
+        'limit': '100',
+        if (path == '/accounts') 'type': 'all',
+      });
+      ids.addAll([for (final item in response.items) '${item['id']}']);
+      if (page >= response.totalPages) return ids;
+    }
+  }
+
+  Future<void> restore() async {
+    if (Platform.environment['FIREFLY_E2E_KEEP'] == '1') return;
+    for (final path in _collections) {
+      final created = (await _ids(_transport, path)).difference(_before[path]!);
+      for (final id in created) {
+        try {
+          await _transport.delete('$path/$id');
+        } on FireflyNotFound {
+          // Removed with something deleted before it.
+        }
+      }
+    }
+  }
+}
