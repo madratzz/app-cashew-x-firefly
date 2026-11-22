@@ -2,14 +2,12 @@ import 'package:budget/firefly/firefly.dart';
 import 'package:budget/firefly/ui/slots.dart';
 import 'package:budget/firefly/ui/account/firefly_account_tile.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/platform/capabilities.dart';
 import 'package:budget/main.dart';
 import 'package:budget/pages/editCategoriesPage.dart';
 import 'package:budget/pages/exchangeRatesPage.dart';
 import 'package:budget/struct/defaultPreferences.dart';
 import 'package:budget/struct/navBarIconsData.dart';
 import 'package:budget/struct/settings.dart';
-import 'package:budget/widgets/accountAndBackup.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/navigationFramework.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
@@ -307,13 +305,7 @@ class NavigationSidebarState extends State<NavigationSidebar> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               SizedBox(height: 40),
-                              if (!PlatformCapabilities.supportsGoogleSignIn)
-                                const FireflyAccountTile(compact: true)
-                              else if (!FireflyMode.enabled)
-                                GoogleAccountLoginButton(
-                                  navigationSidebarButton: true,
-                                  isButtonSelected: selectedIndex == 8,
-                                ),
+                              const FireflyAccountTile(compact: true),
                               NavigationSidebarButtonWithNavBarIconData(
                                 navBarIconDataKey: "settings",
                                 currentPageIndex: selectedIndex,

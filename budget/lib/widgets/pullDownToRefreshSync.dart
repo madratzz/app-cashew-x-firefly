@@ -2,7 +2,6 @@ import 'package:budget/firefly/firefly.dart';
 import 'package:budget/colors.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/struct/settings.dart';
-import 'package:budget/widgets/accountAndBackup.dart';
 import 'package:budget/widgets/navigationFramework.dart';
 import 'package:budget/widgets/navigationSidebar.dart';
 import 'package:budget/widgets/transactionEntry/swipeToSelectTransactions.dart';
@@ -16,12 +15,8 @@ bool enableSwipeDownToRefresh(BuildContext context) {
   if (FireflyMode.enabled) {
     return selectingTransactionsActive == 0 && runningCloudFunctions == false;
   }
-  return selectingTransactionsActive == 0 &&
-      runningCloudFunctions == false &&
-      appStateSettings["hasSignedIn"] != false &&
-      appStateSettings["backupSync"] == true &&
-      googleUser != null;
-  // && getIsFullScreen(context) == false;
+  // Pull-to-refresh only syncs with Firefly III
+  return false;
 }
 
 class PullDownToRefreshSync extends StatefulWidget {

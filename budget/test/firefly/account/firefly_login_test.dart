@@ -10,8 +10,6 @@ import 'package:budget/platform/capabilities.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/defaultPreferences.dart';
 import 'package:budget/struct/settings.dart';
-import 'package:budget/struct/uploadAttachment.dart';
-import 'package:budget/widgets/accountAndBackup.dart';
 import 'package:budget/widgets/exportDB.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -68,9 +66,6 @@ void main() {
       expect(PlatformCapabilities.googleDriveAvailable, isFalse);
     }
     debugDefaultTargetPlatformOverride = null;
-    expect(await signInGoogle(), isFalse);
-    expect(await refreshGoogleSignIn(), isFalse);
-    expect(await getFileAndUpload(), isNull);
   });
 
   testWidgets('onboarding offers Firefly login and no Google button',
@@ -104,7 +99,6 @@ void main() {
 
     expect(find.byType(FireflyAccountTile), findsOneWidget);
     expect(find.text('firefly-account-connect'), findsOneWidget);
-    expect(find.byType(GoogleAccountLoginButton), findsNothing);
     expect(find.text('google-drive'), findsNothing);
     expect(find.text('auto-email-transactions'), findsNothing);
     // Local file backups stay
