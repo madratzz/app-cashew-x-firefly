@@ -63,6 +63,7 @@ The emulator (`phase3/support/phase3_emulator.dart`) adds the liability read sha
 - A budget POSTed with an auto-budget amount gets the current period's limit from the server, and the server also accepts a second limit for the same period. The limit syncer adopts that unmapped limit instead of creating another one.
 - `POST /piggy-banks` requires `start_date`.
 - `PUT /recurrences/{id}` requires `transactions` in every request ("Need at least one transaction."), even for a title-only edit, so the app always sends them. Repetition moments from 0 to 10 are accepted on PUT; an earlier note that they were rejected was wrong.
+- `GET /attachments/{id}/download` with `Accept: application/octet-stream` alone answers 406 (`BadHttpHeaderException`), so the app sends `application/octet-stream, */*`. Found by the device attachment test in CI (WP-49); the Phase 3 suite only compared filenames.
 - `POST /recurrences/{id}/trigger?date=` creates a group only when the date is a listed occurrence, and only once per occurrence. The app triggers the server's next occurrence.
 
 ## Live run against a disposable Firefly III 6.6.2

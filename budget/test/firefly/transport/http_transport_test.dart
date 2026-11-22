@@ -476,7 +476,7 @@ void main() {
           }
           request.response.statusCode = 204;
         } else {
-          expect(request.headers.value('accept'), 'application/octet-stream');
+          expect(request.headers.value('accept'), 'application/octet-stream, */*');
           request.response.bufferOutput = false;
           request.response.add([0, 255]);
           await request.response.flush();
