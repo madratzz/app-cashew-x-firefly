@@ -507,11 +507,15 @@ Future<DeletePopupAction?> deleteBudgetPopup(
         popRoute(context);
       }
       openLoadingPopupTryCatch(() async {
-        // Record the Firefly delete before the legacy delete removes the row
+        // Record the Firefly delete before the legacy delete removes the row.
+        // The route may already be popped, so the context is not re-checked.
         if (FireflyMode.enabled) {
+          final dynamic deleteContext = context;
           await database.fireflyDeleteBudget(budget.budgetPk);
+          await database.deleteBudget(deleteContext, budget);
+        } else {
+          await database.deleteBudget(context, budget);
         }
-        await database.deleteBudget(context, budget);
         openSnackbar(
           SnackbarMessage(
             title: "deleted-budget".tr(),

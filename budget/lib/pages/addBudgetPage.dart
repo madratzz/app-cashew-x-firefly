@@ -910,7 +910,7 @@ class _AddBudgetPageState extends State<AddBudgetPage> {
                   bottom: 15,
                 ),
                 child: SettingsContainer(
-                  key: ValueKey("firefly-budget-limits-entry"),
+                  key: const ValueKey("firefly-budget-limits-entry"),
                   isOutlined: true,
                   onTap: () => pushRoute(
                     context,
